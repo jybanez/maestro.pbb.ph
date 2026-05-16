@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "mode": "fresh",
+  "kit": {
+    "run_id": "kit_20260515_001",
+    "node_id": "hub-a",
+    "operator": "installer-admin",
+    "timezone": "Asia/Manila"
+  },
+  "app": {
+    "install_path": "C:\\wamp64\\www\\pbb\\maestro",
+    "public_path": "C:\\wamp64\\www\\pbb\\maestro\\public",
+    "app_url": "https://maestro.pbb.ph",
+    "app_env": "production",
+    "app_debug": false,
+    "force_https": true
+  },
+  "database": {
+    "driver": "mysql",
+    "host": "127.0.0.1",
+    "port": 3306,
+    "database": "pbb_maestro",
+    "username": "root",
+    "password": ""
+  },
+  "admin": {
+    "strategy": "create_if_missing",
+    "name": "PBB Administrator",
+    "email": "admin@pbb.local",
+    "password": "provided-once-in-kit-setup",
+    "must_change_password": false,
+    "overwrite_existing": false
+  },
+  "maestro": {
+    "starting_threshold_seconds": 15,
+    "stale_threshold_seconds": 45,
+    "clock_skew_threshold_seconds": 60,
+    "telemetry_token_header": "X-Telemetry-Token",
+    "telemetry_trace": false,
+    "populate": {
+      "enabled": false,
+      "applications": [
+        {
+          "app_code": "relay",
+          "display_name": "PBB Relay",
+          "environment": "production",
+          "base_url": "https://relay.pbb.ph",
+          "is_active": true,
+          "telemetry_tokens": [
+            {
+              "label": "Relay primary telemetry token",
+              "plain_text_token": "replace-with-kit-generated-token"
+            }
+          ]
+        },
+        {
+          "app_code": "Realtime",
+          "display_name": "PBB Realtime",
+          "environment": "production",
+          "base_url": "https://realtime.pbb.ph",
+          "is_active": true
+        }
+      ],
+      "options": {
+        "overwrite_existing": false,
+        "deactivate_missing": false
+      }
+    }
+  },
+  "services": {
+    "target_os": "windows",
+    "manager": "scheduled-task",
+    "startup_mode": "automatic",
+    "registration_mode": "generate"
+  },
+  "options": {
+    "run_migrations": true,
+    "seed_initial_data": true,
+    "write_env": true,
+    "cache_config": true,
+    "validate_after_install": true,
+    "overwrite_env": false,
+    "telemetry_smoke": false
+  }
+}

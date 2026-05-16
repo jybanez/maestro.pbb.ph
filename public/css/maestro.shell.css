@@ -1,0 +1,622 @@
+:root {
+    --maestro-bg: #07101a;
+    --maestro-bg-soft: #0d1723;
+    --maestro-line: #26384a;
+    --maestro-line-strong: #3c5c78;
+    --maestro-text: #edf5fd;
+    --maestro-soft: #9cb0c6;
+    --maestro-muted: #70859c;
+    --maestro-accent: #43c5ff;
+    --maestro-success: #48d597;
+    --maestro-warn: #f0bc62;
+    --maestro-danger: #ff838a;
+    --maestro-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+    min-height: 100%;
+    background:
+        radial-gradient(circle at top left, rgba(67, 197, 255, 0.16), transparent 24rem),
+        radial-gradient(circle at top right, rgba(72, 213, 151, 0.08), transparent 18rem),
+        linear-gradient(180deg, #07101a 0%, #08121c 45%, #050c14 100%);
+    color: var(--maestro-text);
+    font-family: var(--ui-font);
+    overflow: hidden;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+        linear-gradient(rgba(88, 113, 138, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88, 113, 138, 0.08) 1px, transparent 1px);
+    background-size: 2.5rem 2.5rem;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 86%);
+    pointer-events: none;
+}
+
+body,
+#app {
+    min-height: 100vh;
+    height: 100vh;
+}
+
+.maestro-app {
+    position: relative;
+    height: 100vh;
+    padding: 1.25rem;
+    overflow: hidden;
+}
+
+.maestro-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.maestro-appbar {
+    min-width: 0;
+}
+
+.maestro-topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.maestro-topbar-main {
+    min-width: 0;
+    display: grid;
+    gap: 0.85rem;
+    flex: 1 1 auto;
+}
+
+.maestro-brandblock {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.maestro-brand {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+}
+
+.maestro-copy {
+    margin: 0;
+    max-width: 56rem;
+    color: var(--maestro-soft);
+    line-height: 1.62;
+}
+
+.maestro-topbar-actions {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.maestro-topnav {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.maestro-topnav-button.is-active {
+    border-color: #5f84c9;
+    background: #213454;
+    color: #e6efff;
+}
+
+.maestro-session-actions {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.maestro-body {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 1rem;
+    overflow: hidden;
+}
+
+.maestro-page .ui-panel,
+.maestro-stat,
+.maestro-page-surface {
+    box-shadow: var(--maestro-shadow);
+}
+
+.maestro-page {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.maestro-page-shell {
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    gap: 0.9rem;
+}
+
+.maestro-page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    min-height: 0;
+}
+
+.maestro-page-head-main {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.maestro-page-title {
+    margin: 0;
+    font-size: clamp(1.9rem, 3vw, 2.8rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+}
+
+.maestro-page-copy {
+    margin: 0;
+    max-width: 58rem;
+    color: var(--maestro-soft);
+    line-height: 1.55;
+}
+
+.maestro-page-head .ui-inline {
+    justify-content: flex-end;
+}
+
+.maestro-page-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.maestro-page-toolbar-main,
+.maestro-page-toolbar-side {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.maestro-page-toolbar-side {
+    justify-content: flex-end;
+}
+
+.maestro-page-summary {
+    min-height: 0;
+}
+
+.maestro-page-summary.is-empty {
+    display: none;
+}
+
+.maestro-page-content {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+.maestro-page-surface {
+    min-height: 0;
+    flex: 1;
+    height: 100%;
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: 1rem;
+    overflow: auto;
+}
+
+.maestro-page-surface.is-management-surface {
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.maestro-page-surface.is-grid-fill-surface {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+}
+
+.maestro-page-surface.is-grid-fill-surface > .maestro-grid-host {
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+}
+
+.maestro-page-surface.is-grid-fill-stack {
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.maestro-grid-host {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 0.5rem;
+    border: 1px solid var(--maestro-line);
+    border-radius: 16px;
+    background: rgba(16, 27, 44, 0.88);
+}
+
+.maestro-grid-host .ui-grid {
+    height: 100%;
+    min-height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    gap: 0;
+}
+
+.maestro-grid-host .ui-grid-table-wrap {
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(3, 12, 28, 0.96);
+}
+
+.maestro-grid-host .ui-grid-table thead th {
+    background: linear-gradient(180deg, rgba(15, 31, 58, 0.98), rgba(11, 24, 45, 0.98));
+    box-shadow: inset 0 -1px 0 rgba(69, 97, 143, 0.5);
+}
+
+.maestro-grid-host .ui-grid-table tbody {
+    background: rgba(2, 10, 24, 0.96);
+}
+
+.maestro-grid-host .ui-grid-row {
+    height: 40px;
+}
+
+.maestro-grid-host .ui-grid-cell,
+.maestro-grid-host .ui-grid-col,
+.maestro-grid-host .ui-grid-col-select {
+    padding: 6px 10px;
+}
+
+.maestro-grid-host .ui-grid-resize-handle {
+    opacity: 0.9;
+}
+
+.maestro-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.9rem;
+}
+
+.maestro-stat {
+    border: 1px solid var(--maestro-line);
+    border-radius: 14px;
+    background: rgba(11, 19, 30, 0.86);
+    padding: 1rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.maestro-stat-key {
+    color: var(--maestro-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.maestro-stat-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+}
+
+.maestro-stat-meta {
+    color: var(--maestro-soft);
+}
+
+.maestro-summary-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.maestro-dashboard-columns {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maestro-dashboard-column {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    overflow: hidden;
+}
+
+.maestro-panel-scroll {
+    min-height: 0;
+    overflow: auto;
+    padding-right: 0.15rem;
+}
+
+.maestro-card-list,
+.maestro-feed {
+    display: grid;
+    gap: 0.75rem;
+    align-content: start;
+    align-items: start;
+}
+
+.maestro-card {
+    border: 1px solid var(--maestro-line);
+    border-radius: 14px;
+    background: rgba(11, 19, 30, 0.74);
+    padding: 0.95rem 1rem;
+    display: grid;
+    gap: 0.35rem;
+    align-self: start;
+}
+
+.maestro-card strong {
+    display: block;
+}
+
+.maestro-meta,
+.maestro-inline-meta {
+    color: var(--maestro-soft);
+}
+
+.maestro-inline-meta {
+    display: inline-flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.maestro-message {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(67, 197, 255, 0.24);
+    border-radius: 14px;
+    background: rgba(16, 56, 79, 0.38);
+    color: #dff4ff;
+}
+
+.maestro-empty {
+    display: grid;
+    gap: 0.5rem;
+    align-content: center;
+    justify-items: start;
+    min-height: 10rem;
+    padding: 1rem;
+    border: 1px dashed var(--maestro-line-strong);
+    border-radius: 14px;
+    color: var(--maestro-soft);
+    background: rgba(9, 16, 25, 0.54);
+}
+
+.maestro-empty.is-compact {
+    min-height: 7.5rem;
+    align-content: start;
+}
+
+.maestro-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.maestro-status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--maestro-accent);
+}
+
+.maestro-status-dot.ok {
+    background: var(--maestro-success);
+}
+
+.maestro-status-dot.warn {
+    background: var(--maestro-warn);
+}
+
+.maestro-status-dot.error {
+    background: var(--maestro-danger);
+}
+
+.maestro-toolbar-search {
+    min-width: min(20rem, 100%);
+}
+
+.maestro-select {
+    min-width: 10rem;
+}
+
+.maestro-code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.9rem;
+}
+
+.maestro-helper-note {
+    color: var(--maestro-soft);
+    font-size: 0.9rem;
+}
+
+.maestro-management-layout {
+    display: grid;
+    gap: 1rem;
+    min-height: 100%;
+    height: 100%;
+    align-items: start;
+    align-self: stretch;
+}
+
+.maestro-management-layout > * {
+    min-width: 0;
+}
+
+.maestro-management-grid-panel {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+    overflow: hidden;
+}
+
+.maestro-management-panel {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    min-height: 0;
+    overflow: auto;
+}
+
+.maestro-management-grid {
+    min-width: 0;
+    min-height: 0;
+    align-self: stretch;
+    height: 100%;
+    overflow: hidden;
+}
+
+.maestro-detail-stack {
+    display: grid;
+    gap: 1rem;
+}
+
+.maestro-detail-meta {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.maestro-detail-meta > div {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--maestro-line);
+    border-radius: 14px;
+    background: rgba(11, 19, 30, 0.74);
+}
+
+.maestro-detail-key {
+    color: var(--maestro-soft);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.maestro-token-reveal {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(67, 197, 255, 0.28);
+    border-radius: 14px;
+    background: rgba(16, 56, 79, 0.28);
+}
+
+.maestro-token-reveal-copy {
+    display: grid;
+    gap: 0.25rem;
+    color: #dff4ff;
+}
+
+.maestro-token-secret {
+    display: block;
+    overflow-wrap: anywhere;
+    padding: 0.85rem 0.95rem;
+    border-radius: 12px;
+    border: 1px dashed rgba(67, 197, 255, 0.24);
+    background: rgba(9, 16, 25, 0.72);
+    color: #f3f8ff;
+}
+
+.maestro-token-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.maestro-token-item {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--maestro-line);
+    background: rgba(11, 19, 30, 0.74);
+}
+
+.maestro-token-item > div {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.maestro-token-item span {
+    color: var(--maestro-soft);
+    font-size: 0.92rem;
+}
+
+@media (min-width: 1100px) {
+    .maestro-app {
+        padding: 1.5rem;
+    }
+
+    .maestro-management-layout {
+        grid-template-columns: minmax(0, 1fr) 22rem;
+        align-items: start;
+    }
+}
+
+@media (max-width: 1099px) {
+    .maestro-dashboard-columns {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .maestro-dashboard-column {
+        grid-template-rows: auto auto;
+    }
+
+    .maestro-panel-scroll {
+        overflow: visible;
+        padding-right: 0;
+    }
+}

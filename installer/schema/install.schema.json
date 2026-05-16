@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maestro.pbb.ph/installer/schema/install.schema.json",
+  "title": "PBB Maestro installer config",
+  "type": "object",
+  "required": ["mode", "app", "database", "admin"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["fresh", "upgrade", "repair", "preflight"]
+    },
+    "kit": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "run_id": { "type": "string" },
+        "node_id": { "type": "string" },
+        "operator": { "type": "string" },
+        "timezone": { "type": "string" }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": ["install_path", "app_url"],
+      "additionalProperties": true,
+      "properties": {
+        "install_path": { "type": "string", "minLength": 1 },
+        "public_path": { "type": "string" },
+        "app_url": { "type": "string", "format": "uri" },
+        "app_env": { "type": "string" },
+        "app_debug": { "type": "boolean" },
+        "force_https": { "type": "boolean" }
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": ["host", "database", "username"],
+      "additionalProperties": true,
+      "properties": {
+        "driver": { "type": "string", "enum": ["mysql"] },
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "database": { "type": "string", "minLength": 1 },
+        "username": { "type": "string", "minLength": 1 },
+        "password": { "type": "string" }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "required": ["name", "email", "password"],
+      "additionalProperties": true,
+      "properties": {
+        "strategy": { "type": "string", "enum": ["create_if_missing"] },
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "format": "email" },
+        "password": { "type": "string", "minLength": 12 },
+        "must_change_password": { "type": "boolean" },
+        "overwrite_existing": { "type": "boolean" }
+      }
+    },
+    "maestro": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "starting_threshold_seconds": { "type": "integer", "minimum": 1 },
+        "stale_threshold_seconds": { "type": "integer", "minimum": 1 },
+        "clock_skew_threshold_seconds": { "type": "integer", "minimum": 1 },
+        "telemetry_token_header": { "type": "string", "minLength": 1 },
+        "telemetry_trace": { "type": "boolean" },
+        "telemetry_token_last_used_at_update_interval_seconds": { "type": "integer", "minimum": 0 },
+        "telemetry_slow_request_threshold_ms": { "type": "integer", "minimum": 1 },
+        "populate": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "applications": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["app_code", "display_name"],
+                "additionalProperties": true,
+                "properties": {
+                  "app_code": { "type": "string", "minLength": 1 },
+                  "display_name": { "type": "string", "minLength": 1 },
+                  "environment": { "type": "string" },
+                  "base_url": { "type": "string" },
+                  "is_active": { "type": "boolean" },
+                  "meta": { "type": "object" },
+                  "telemetry_tokens": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["label"],
+                      "additionalProperties": true,
+                      "properties": {
+                        "label": { "type": "string", "minLength": 1 },
+                        "plain_text_token": { "type": "string" },
+                        "token_hash": { "type": "string" },
+                        "revoke": { "type": "boolean" }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "overwrite_existing": { "type": "boolean" },
+                "deactivate_missing": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "target_os": { "type": "string", "enum": ["windows", "linux"] },
+        "manager": { "type": "string", "enum": ["windows-service", "scheduled-task", "systemd"] },
+        "startup_mode": { "type": "string", "enum": ["automatic", "manual"] },
+        "registration_mode": { "type": "string", "enum": ["generate", "register", "manual", "template"] }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "run_migrations": { "type": "boolean" },
+        "seed_initial_data": { "type": "boolean" },
+        "write_env": { "type": "boolean" },
+        "cache_config": { "type": "boolean" },
+        "validate_after_install": { "type": "boolean" },
+        "overwrite_env": { "type": "boolean" },
+        "telemetry_smoke": { "type": "boolean" }
+      }
+    }
+  }
+}

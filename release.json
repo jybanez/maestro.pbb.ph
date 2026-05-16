@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "app": "pbb-maestro",
+  "name": "PBB Maestro",
+  "milestone": 1,
+  "version": "1.0.0",
+  "display_version": "v1-1.0.0",
+  "release_date": "2026-05-15",
+  "release_name": "Kit Setup Installer Contract",
+  "type": "laravel",
+  "requires": {
+    "os": ["windows", "linux"],
+    "php": ">=8.2",
+    "php_extensions": ["json", "openssl", "mbstring", "fileinfo", "zip", "pdo", "pdo_mysql", "tokenizer", "xml", "ctype"],
+    "mysql": ">=5.7",
+    "node": "not-required-static-assets-present",
+    "composer": "not-required-vendor-bundled"
+  },
+  "installer": {
+    "interactive": "installer/index.php",
+    "unattended": "installer/install-run.php",
+    "status": "installer/status.php",
+    "schema": "installer/schema/install.schema.json",
+    "tools": {
+      "populate_initial_data": {
+        "path": "tools/populate-initial-data.php",
+        "description": "Register known Maestro monitored applications and optional telemetry tokens.",
+        "config_section": "maestro.populate",
+        "required": false
+      }
+    }
+  },
+  "health": {
+    "http": "/up",
+    "bootstrap": "/api/bootstrap",
+    "internal": "/internal-health"
+  },
+  "services": [
+    {
+      "id": "pbb-maestro-scheduler",
+      "name": "PBB Maestro Scheduler",
+      "kind": "scheduler",
+      "command": "php artisan schedule:run",
+      "required": true,
+      "healthcheck": "php artisan maestro:reconcile-stale-workers"
+    }
+  ],
+  "artifacts": {
+    "install_manifest": "storage/app/installer/install-manifest.json",
+    "install_report": "storage/app/installer/install-report.json",
+    "install_log": "storage/app/installer/install.log"
+  }
+}
