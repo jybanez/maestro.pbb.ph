@@ -313,7 +313,17 @@ Important current paths:
 - `resources/vendor/helpers.pbb.ph`
 - `public/vendor/helpers.pbb.ph`
 
-The current local pin recorded in this repository is upstream commit `b29730e58971a9511e44110ed1984988db0029ae` updated on `2026-04-16`.
+The current app runtime uses the bundled Helper assets from `dist/helpers.ui.bundle.min.js` and `dist/helpers.ui.bundle.min.css`.
+
+## Kit Setup Release Package
+
+Build the Kit-consumable release ZIP from the repository root:
+
+```powershell
+& 'C:/wamp64/bin/php/php8.2.29/php.exe' tools/build-release-package.php
+```
+
+The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `latest-manifest.json`. The ZIP follows the Kit Setup bundle layout with root `release.json`, root `checksums.sha256`, and the installable Laravel app under `app/`. It stamps package-only `build.*` metadata into the bundled `release.json` and excludes local secrets, caches, logs, test files, CI/build tooling, and the package builder itself from the distributable.
 
 ## Tests
 
