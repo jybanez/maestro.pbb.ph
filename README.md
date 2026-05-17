@@ -323,7 +323,7 @@ Build the Kit-consumable release ZIP from the repository root:
 & 'C:/wamp64/bin/php/php8.2.29/php.exe' tools/build-release-package.php
 ```
 
-The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `latest-manifest.json`. The ZIP follows the Kit Setup bundle layout with root `release.json`, root `checksums.sha256`, and the installable Laravel app under `app/`. It stamps package-only `build.*` metadata into the bundled `release.json` and excludes local secrets, caches, logs, test files, CI/build tooling, and the package builder itself from the distributable.
+The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `latest-manifest.json`. The ZIP deploys directly as the runnable Laravel app root, with `release.json`, `checksums.sha256`, `installer/install-run.php`, `installer/status.php`, and the Laravel runtime all at the archive root. It stamps package-only `build.*` metadata into the bundled `release.json` and excludes local secrets, caches, logs, test files, CI/build tooling, and the package builder itself from the distributable.
 
 ## Tests
 

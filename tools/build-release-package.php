@@ -84,7 +84,7 @@ foreach ([
     'composer.lock',
     'package.json',
 ] as $file) {
-    $addFile($root . DIRECTORY_SEPARATOR . $file, 'app/' . $file);
+    $addFile($root . DIRECTORY_SEPARATOR . $file, $file);
 }
 
 foreach ([
@@ -100,12 +100,11 @@ foreach ([
     'tools',
     'vendor',
 ] as $dir) {
-    $addDirectory($root . DIRECTORY_SEPARATOR . $dir, 'app/' . $dir);
+    $addDirectory($root . DIRECTORY_SEPARATOR . $dir, $dir);
 }
 
 $checksums = [
     'release.json' => hash('sha256', encodeJson($release)),
-    'app/release.json' => hash('sha256', encodeJson($release)),
 ];
 
 foreach ($entries as $entry) {
@@ -118,8 +117,6 @@ foreach ($checksums as $path => $hash) {
     $checksumText .= $hash . '  ' . $path . PHP_EOL;
 }
 
-$checksums['checksums.sha256'] = hash('sha256', $checksumText);
-
 if (is_file($packagePath)) {
     unlink($packagePath);
 }
@@ -130,7 +127,6 @@ if ($zip->open($packagePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== tru
 }
 
 $zip->addFromString('release.json', encodeJson($release));
-$zip->addFromString('app/release.json', encodeJson($release));
 $zip->addFromString('checksums.sha256', $checksumText);
 
 foreach ($entries as $entry) {
@@ -151,7 +147,7 @@ $manifest = [
         'name' => $packageName,
         'sha256' => hash_file('sha256', $packagePath),
         'bytes' => filesize($packagePath),
-        'entries' => count($entries) + 3,
+        'entries' => count($entries) + 2,
     ],
 ];
 
