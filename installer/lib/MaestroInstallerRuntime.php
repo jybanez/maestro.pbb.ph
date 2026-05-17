@@ -213,6 +213,7 @@ final class MaestroInstallerRuntime
         $publicPath = (string) ($config['app']['public_path'] ?? '');
         $db = $config['database'] ?? [];
         $checks = [];
+        $runtimeDirs = self::repairRuntimeDirectories();
 
         $checks[] = self::check('php.version', 'PHP version', version_compare(PHP_VERSION, '8.2.0', '>='), 'PHP ' . PHP_VERSION, true);
 
@@ -224,8 +225,15 @@ final class MaestroInstallerRuntime
         $checks[] = self::check('filesystem.install_path.safe', 'Install path safety', self::isSafePath($installPath), $installPath ?: 'Missing install path', true);
         $checks[] = self::check('filesystem.install_path.writable', 'Install path writable', is_dir($installPath) && is_writable($installPath), $installPath, true);
         $checks[] = self::check('filesystem.public_path', 'Public path exists', is_dir($publicPath), $publicPath, true);
-        $checks[] = self::check('filesystem.storage.writable', 'Storage writable', is_dir($root . '/storage') && is_writable($root . '/storage'), $root . '/storage', true);
-        $checks[] = self::check('filesystem.bootstrap_cache.writable', 'Bootstrap cache writable', is_dir($root . '/bootstrap/cache') && is_writable($root . '/bootstrap/cache'), $root . '/bootstrap/cache', true);
+        foreach ($runtimeDirs as $id => $result) {
+            $checks[] = self::check(
+                "filesystem.{$id}.writable",
+                $result['label'],
+                $result['ok'],
+                $result['message'],
+                true
+            );
+        }
         $checks[] = self::check('laravel.artisan', 'Laravel artisan present', is_file($root . '/artisan'), $root . '/artisan', true);
         $checks[] = self::check('laravel.vendor', 'Composer vendor present', is_file($root . '/vendor/autoload.php'), $root . '/vendor/autoload.php', true);
         $checks[] = self::check('assets.app_js', 'Maestro app JS present', is_file($root . '/public/js/maestro.app.js'), $root . '/public/js/maestro.app.js', true);
@@ -550,16 +558,22 @@ TIMER;
     public static function validateLocalState(): array
     {
         $root = self::rootPath();
-
-        return [
+        $runtimeDirs = self::repairRuntimeDirectories();
+        $checks = [
             self::statusCheck('env', '.env present', is_file($root . '/.env'), $root . '/.env'),
             self::statusCheck('artisan', 'Artisan present', is_file($root . '/artisan'), $root . '/artisan'),
             self::statusCheck('vendor', 'Vendor autoload present', is_file($root . '/vendor/autoload.php'), $root . '/vendor/autoload.php'),
-            self::statusCheck('storage', 'Storage writable', is_dir($root . '/storage') && is_writable($root . '/storage'), $root . '/storage'),
+        ];
+
+        foreach ($runtimeDirs as $id => $result) {
+            $checks[] = self::statusCheck($id, $result['label'], $result['ok'], $result['message']);
+        }
+
+        return array_merge($checks, [
             self::statusCheck('app_js', 'Maestro app JS present', is_file($root . '/public/js/maestro.app.js'), $root . '/public/js/maestro.app.js'),
             self::statusCheck('helpers_bundle_js', 'Vendored Helper bundle JS present', is_file($root . '/public/vendor/helpers.pbb.ph/dist/helpers.ui.bundle.min.js'), $root . '/public/vendor/helpers.pbb.ph/dist/helpers.ui.bundle.min.js'),
             self::statusCheck('helpers_bundle_css', 'Vendored Helper bundle CSS present', is_file($root . '/public/vendor/helpers.pbb.ph/dist/helpers.ui.bundle.min.css'), $root . '/public/vendor/helpers.pbb.ph/dist/helpers.ui.bundle.min.css'),
-        ];
+        ]);
     }
 
     public static function runValidation(array $config): array
@@ -833,6 +847,52 @@ TIMER;
         if (! is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
+    }
+
+    private static function repairRuntimeDirectories(): array
+    {
+        $root = self::rootPath();
+        $directories = [
+            'storage' => ['label' => 'Storage root writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage'],
+            'storage_app' => ['label' => 'Storage app writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app'],
+            'storage_app_private' => ['label' => 'Storage private writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'private'],
+            'storage_app_public' => ['label' => 'Storage public writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'public'],
+            'storage_framework_cache' => ['label' => 'Storage framework cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache'],
+            'storage_framework_cache_data' => ['label' => 'Storage framework cache data writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'data'],
+            'storage_framework_sessions' => ['label' => 'Storage framework sessions writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'sessions'],
+            'storage_framework_testing' => ['label' => 'Storage framework testing writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'testing'],
+            'storage_framework_views' => ['label' => 'Storage framework views writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'views'],
+            'storage_logs' => ['label' => 'Storage logs writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'],
+            'bootstrap_cache' => ['label' => 'Bootstrap cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'bootstrap' . DIRECTORY_SEPARATOR . 'cache'],
+        ];
+        $results = [];
+
+        foreach ($directories as $id => $directory) {
+            $path = $directory['path'];
+            $error = null;
+
+            if (! is_dir($path)) {
+                set_error_handler(static function (int $severity, string $message) use (&$error): bool {
+                    $error = $message;
+
+                    return true;
+                });
+                try {
+                    mkdir($path, 0775, true);
+                } finally {
+                    restore_error_handler();
+                }
+            }
+
+            $ok = is_dir($path) && is_writable($path);
+            $results[$id] = [
+                'label' => $directory['label'],
+                'ok' => $ok,
+                'message' => $ok ? $path : ($error !== null ? "{$path} ({$error})" : $path),
+            ];
+        }
+
+        return $results;
     }
 
     private static function summaryForStatus(string $status): string
