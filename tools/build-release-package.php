@@ -23,6 +23,7 @@ $gitCommit = trim(runCommand(['git', 'rev-parse', 'HEAD'], $root));
 $buildId = sprintf('%s-%d-%s-%s', $appId, $milestone, $version, $timestamp);
 $packageName = sprintf('%s-m%d-%s.zip', $appId, $milestone, $version);
 $packagePath = $outputDir . DIRECTORY_SEPARATOR . $packageName;
+$vendorBuildDir = $outputDir . DIRECTORY_SEPARATOR . 'vendor-prod';
 
 $release['display_version'] = $displayVersion;
 $release['build'] = [
@@ -34,14 +35,25 @@ $release['build'] = [
 ];
 
 ensureDir($outputDir);
+prepareProductionVendor($root, $vendorBuildDir);
 
 $entries = [];
+$directories = [];
+$generatedFiles = [];
 $addFile = static function (string $source, string $target) use (&$entries): void {
     if (! is_file($source)) {
         throw new RuntimeException("Missing package source file: {$source}");
     }
 
     $entries[] = ['source' => $source, 'target' => normalizeZipPath($target)];
+};
+
+$addGeneratedFile = static function (string $target, string $content) use (&$generatedFiles): void {
+    $generatedFiles[normalizeZipPath($target)] = $content;
+};
+
+$addDirectoryEntry = static function (string $target) use (&$directories): void {
+    $directories[] = rtrim(normalizeZipPath($target), '/') . '/';
 };
 
 $addDirectory = static function (string $sourceDir, string $targetDir) use (&$entries): void {
@@ -60,29 +72,23 @@ $addDirectory = static function (string $sourceDir, string $targetDir) use (&$en
         }
 
         $path = $file->getPathname();
-        if (shouldExcludePath($path)) {
+        $relative = substr($path, strlen($sourceDir) + 1);
+        $target = normalizeZipPath($targetDir . '/' . str_replace(DIRECTORY_SEPARATOR, '/', $relative));
+        if (shouldExcludePath($target)) {
             continue;
         }
 
-        $relative = substr($path, strlen($sourceDir) + 1);
         $entries[] = [
             'source' => $path,
-            'target' => normalizeZipPath($targetDir . '/' . str_replace(DIRECTORY_SEPARATOR, '/', $relative)),
+            'target' => $target,
         ];
     }
 };
 
+$addGeneratedFile('composer.json', encodeJson(sanitizedComposerJson($root . DIRECTORY_SEPARATOR . 'composer.json')));
+
 foreach ([
-    '.editorconfig',
-    '.env.example',
-    '.gitattributes',
-    '.gitignore',
-    'README.md',
-    'VENDORED.md',
     'artisan',
-    'composer.json',
-    'composer.lock',
-    'package.json',
 ] as $file) {
     $addFile($root . DIRECTORY_SEPARATOR . $file, $file);
 }
@@ -96,16 +102,35 @@ foreach ([
     'public',
     'resources',
     'routes',
-    'storage',
     'tools',
-    'vendor',
 ] as $dir) {
     $addDirectory($root . DIRECTORY_SEPARATOR . $dir, $dir);
+}
+
+$addDirectory($vendorBuildDir, 'vendor');
+
+foreach ([
+    'bootstrap/cache',
+    'storage/app',
+    'storage/app/private',
+    'storage/app/public',
+    'storage/framework/cache',
+    'storage/framework/cache/data',
+    'storage/framework/sessions',
+    'storage/framework/testing',
+    'storage/framework/views',
+    'storage/logs',
+] as $dir) {
+    $addDirectoryEntry($dir);
 }
 
 $checksums = [
     'release.json' => hash('sha256', encodeJson($release)),
 ];
+
+foreach ($generatedFiles as $path => $content) {
+    $checksums[$path] = hash('sha256', $content);
+}
 
 foreach ($entries as $entry) {
     $checksums[$entry['target']] = hash_file('sha256', $entry['source']);
@@ -129,6 +154,14 @@ if ($zip->open($packagePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== tru
 $zip->addFromString('release.json', encodeJson($release));
 $zip->addFromString('checksums.sha256', $checksumText);
 
+foreach (array_unique($directories) as $directory) {
+    $zip->addEmptyDir($directory);
+}
+
+foreach ($generatedFiles as $target => $content) {
+    $zip->addFromString($target, $content);
+}
+
 foreach ($entries as $entry) {
     $zip->addFile($entry['source'], $entry['target']);
 }
@@ -147,7 +180,7 @@ $manifest = [
         'name' => $packageName,
         'sha256' => hash_file('sha256', $packagePath),
         'bytes' => filesize($packagePath),
-        'entries' => count($entries) + 2,
+        'entries' => count($entries) + count($generatedFiles) + count(array_unique($directories)) + 2,
     ],
 ];
 
@@ -177,6 +210,196 @@ function ensureDir(string $dir): void
     }
 }
 
+function sanitizedComposerJson(string $path): array
+{
+    $composer = readJson($path);
+
+    unset(
+        $composer['require-dev'],
+        $composer['autoload-dev'],
+        $composer['scripts'],
+        $composer['scripts-descriptions']
+    );
+
+    $composer['description'] = 'Production runtime metadata for PBB Maestro.';
+    unset($composer['config']['allow-plugins']);
+
+    return $composer;
+}
+
+function prepareProductionVendor(string $root, string $vendorBuildDir): void
+{
+    if (is_dir($vendorBuildDir)) {
+        removeDirectory($vendorBuildDir);
+    }
+
+    $workDir = dirname($vendorBuildDir) . DIRECTORY_SEPARATOR . 'vendor-prod-root';
+    if (is_dir($workDir)) {
+        removeDirectory($workDir);
+    }
+    ensureDir($workDir);
+
+    $lock = readJson($root . DIRECTORY_SEPARATOR . 'composer.lock');
+    $devPackages = [];
+    foreach (($lock['packages-dev'] ?? []) as $package) {
+        if (! is_array($package) || ! isset($package['name'])) {
+            continue;
+        }
+
+        $devPackages[strtolower((string) $package['name'])] = true;
+    }
+
+    copyDirectoryFiltered(
+        $root . DIRECTORY_SEPARATOR . 'vendor',
+        $workDir . DIRECTORY_SEPARATOR . 'vendor',
+        static function (string $relativePath) use ($devPackages): bool {
+            $relativePath = str_replace('\\', '/', $relativePath);
+            if ($relativePath === 'bin' || str_starts_with($relativePath, 'bin/')) {
+                return false;
+            }
+
+            $parts = explode('/', $relativePath);
+            if (count($parts) >= 2) {
+                $packageName = strtolower($parts[0] . '/' . $parts[1]);
+                if (isset($devPackages[$packageName])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    );
+
+    file_put_contents($workDir . DIRECTORY_SEPARATOR . 'composer.json', encodeJson(sanitizedComposerJson($root . DIRECTORY_SEPARATOR . 'composer.json')));
+
+    $composerCommand = array_merge(composerCommandPrefix(), [
+        'dump-autoload',
+        '--no-dev',
+        '--optimize',
+        '--no-interaction',
+        '--no-scripts',
+        '--quiet',
+        '--working-dir',
+        $workDir,
+    ]);
+
+    $previousRootVersion = getenv('COMPOSER_ROOT_VERSION');
+    putenv('COMPOSER_ROOT_VERSION=1.0.0');
+    $result = runProcess($composerCommand, $root);
+    if ($previousRootVersion === false) {
+        putenv('COMPOSER_ROOT_VERSION');
+    } else {
+        putenv('COMPOSER_ROOT_VERSION=' . $previousRootVersion);
+    }
+    if ($result['exit_code'] !== 0) {
+        throw new RuntimeException("Composer production autoload generation failed:\n" . trim($result['stderr'] . "\n" . $result['stdout']));
+    }
+
+    filterComposerInstalledMetadata($workDir . DIRECTORY_SEPARATOR . 'vendor', $devPackages);
+    rename($workDir . DIRECTORY_SEPARATOR . 'vendor', $vendorBuildDir);
+    removeDirectory($workDir);
+}
+
+function filterComposerInstalledMetadata(string $vendorDir, array $devPackages): void
+{
+    $installedJsonPath = $vendorDir . DIRECTORY_SEPARATOR . 'composer' . DIRECTORY_SEPARATOR . 'installed.json';
+    if (is_file($installedJsonPath)) {
+        $installed = readJson($installedJsonPath);
+        $packages = $installed['packages'] ?? $installed;
+        $packages = array_values(array_filter($packages, static function (array $package) use ($devPackages): bool {
+            $name = strtolower((string) ($package['name'] ?? ''));
+
+            return $name !== '' && ! isset($devPackages[$name]);
+        }));
+
+        if (isset($installed['packages'])) {
+            $installed['packages'] = $packages;
+        } else {
+            $installed = $packages;
+        }
+
+        file_put_contents($installedJsonPath, encodeJson($installed));
+    }
+
+    $installedPhpPath = $vendorDir . DIRECTORY_SEPARATOR . 'composer' . DIRECTORY_SEPARATOR . 'installed.php';
+    if (is_file($installedPhpPath)) {
+        $installed = require $installedPhpPath;
+        if (is_array($installed)) {
+            $installed['root']['dev'] = false;
+            foreach (($installed['versions'] ?? []) as $name => $package) {
+                $normalizedName = strtolower((string) $name);
+                if (($package['dev_requirement'] ?? false) || isset($devPackages[$normalizedName])) {
+                    unset($installed['versions'][$name]);
+                }
+            }
+
+            file_put_contents($installedPhpPath, '<?php return ' . var_export($installed, true) . ';' . PHP_EOL);
+        }
+    }
+}
+
+function removeDirectory(string $dir): void
+{
+    $real = realpath($dir);
+    if ($real === false) {
+        return;
+    }
+
+    $expectedRoot = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'installer-build');
+    if ($expectedRoot === false || ! str_starts_with($real, $expectedRoot)) {
+        throw new RuntimeException("Refusing to remove unexpected directory: {$dir}");
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($real, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        if (! $item instanceof SplFileInfo) {
+            continue;
+        }
+
+        if ($item->isDir()) {
+            rmdir($item->getPathname());
+        } else {
+            unlink($item->getPathname());
+        }
+    }
+
+    rmdir($real);
+}
+
+function copyDirectoryFiltered(string $sourceDir, string $targetDir, callable $include): void
+{
+    ensureDir($targetDir);
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($sourceDir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        if (! $item instanceof SplFileInfo) {
+            continue;
+        }
+
+        $relativePath = substr($item->getPathname(), strlen($sourceDir) + 1);
+        if (! $include($relativePath)) {
+            continue;
+        }
+
+        $target = $targetDir . DIRECTORY_SEPARATOR . $relativePath;
+        if ($item->isDir()) {
+            ensureDir($target);
+            continue;
+        }
+
+        ensureDir(dirname($target));
+        copy($item->getPathname(), $target);
+    }
+}
+
 function runCommand(array $command, string $cwd): string
 {
     $descriptor = [
@@ -198,6 +421,42 @@ function runCommand(array $command, string $cwd): string
     return (string) $stdout;
 }
 
+function runProcess(array $command, string $cwd): array
+{
+    $descriptor = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $process = proc_open($command, $descriptor, $pipes, $cwd, null, ['bypass_shell' => true]);
+    if (! is_resource($process)) {
+        return ['exit_code' => 1, 'stdout' => '', 'stderr' => 'Unable to start process.'];
+    }
+
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+
+    return ['exit_code' => $exitCode, 'stdout' => (string) $stdout, 'stderr' => (string) $stderr];
+}
+
+function composerCommandPrefix(): array
+{
+    if (PHP_OS_FAMILY === 'Windows') {
+        $composerPhar = 'C:\ProgramData\ComposerSetup\bin\composer.phar';
+        if (is_file($composerPhar)) {
+            return [PHP_BINARY, $composerPhar];
+        }
+
+        return ['cmd', '/c', 'composer.bat'];
+    }
+
+    return ['composer'];
+}
+
 function normalizeZipPath(string $path): string
 {
     return str_replace('\\', '/', $path);
@@ -206,26 +465,42 @@ function normalizeZipPath(string $path): string
 function shouldExcludePath(string $path): bool
 {
     $normalized = '/' . str_replace('\\', '/', $path);
+    $normalizedLower = strtolower($normalized);
 
     foreach ([
         '/.git/',
         '/.github/',
         '/.vscode/',
+        '/docs/',
+        '/doc/',
+        '/examples/',
+        '/example/',
+        '/demo/',
+        '/demos/',
         '/node_modules/',
+        '/bootstrap/cache/',
+        '/database/factories/',
+        '/installer/docs/',
+        '/resources/css/',
+        '/resources/js/',
+        '/resources/vendor/',
         '/storage/app/installer/',
         '/storage/app/installer-build/',
-        '/storage/framework/sessions/',
-        '/storage/framework/views/',
-        '/storage/logs/',
+        '/storage/',
+        '/test/',
         '/tests/',
     ] as $fragment) {
-        if (str_contains($normalized, $fragment)) {
+        if (str_contains($normalizedLower, $fragment)) {
             return true;
         }
     }
 
-    $basename = basename($path);
-    if (in_array($basename, ['.env', '.phpunit.result.cache', 'build-release-package.php'], true)) {
+    $basename = strtolower(basename($path));
+    if (str_starts_with($basename, '.')) {
+        return true;
+    }
+
+    if (in_array($basename, ['composer.lock', 'package.json', 'readme.md', 'changelog.md', 'vendored.md', 'upgrade.md', 'contributing.md', 'playground.php', '.env', '.env.example', '.phpunit.result.cache', 'build-release-package.php'], true)) {
         return true;
     }
 
