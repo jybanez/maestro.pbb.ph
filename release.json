@@ -22,8 +22,12 @@
     "status": "installer/status.php",
     "schema": "installer/schema/install.schema.json",
     "database": {
-      "fresh_strategy": "baseline_schema",
-      "baseline_schema": "database/schema/mysql-fresh.sql",
+      "fresh_install_strategy": "baseline_schema",
+      "baseline_schema": {
+        "path": "database/schema/mysql-fresh.sql",
+        "driver": "mysql",
+        "description": "Current release schema baseline for fresh MySQL/MariaDB installs."
+      },
       "upgrade_strategy": "laravel_migrations"
     },
     "tools": {

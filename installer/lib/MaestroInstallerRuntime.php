@@ -481,8 +481,8 @@ TIMER;
                 'port' => (int) ($db['port'] ?? 3306),
                 'database' => (string) ($db['database'] ?? ''),
                 'username' => (string) ($db['username'] ?? ''),
-                'fresh_strategy' => (string) ($databaseInstaller['fresh_strategy'] ?? 'baseline_schema'),
-                'baseline_schema' => (string) ($databaseInstaller['baseline_schema'] ?? self::baselineSchemaRelativePath()),
+                'fresh_install_strategy' => (string) ($databaseInstaller['fresh_install_strategy'] ?? $databaseInstaller['fresh_strategy'] ?? 'baseline_schema'),
+                'baseline_schema' => self::baselineSchemaRelativePath(),
             ],
             'services' => [$serviceArtifact],
             'health' => [
@@ -699,8 +699,12 @@ TIMER;
     {
         $release = self::releaseMetadata();
         $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
+        $baselineSchema = $databaseInstaller['baseline_schema'] ?? null;
+        if (is_array($baselineSchema)) {
+            return (string) ($baselineSchema['path'] ?? 'database/schema/mysql-fresh.sql');
+        }
 
-        return (string) ($databaseInstaller['baseline_schema'] ?? 'database/schema/mysql-fresh.sql');
+        return (string) ($baselineSchema ?? 'database/schema/mysql-fresh.sql');
     }
 
     private static function baselineSchemaPath(): string
