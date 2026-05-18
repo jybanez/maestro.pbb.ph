@@ -25,8 +25,9 @@
       "fresh_install_strategy": "baseline_schema",
       "baseline_schema": {
         "path": "database/schema/mysql-fresh.sql",
-        "driver": "mysql",
-        "description": "Current release schema baseline for fresh MySQL/MariaDB installs."
+        "engine": "mysql",
+        "generated_at": "2026-05-18T15:49:25+08:00",
+        "source": "current-release-schema"
       },
       "upgrade_strategy": "laravel_migrations"
     },

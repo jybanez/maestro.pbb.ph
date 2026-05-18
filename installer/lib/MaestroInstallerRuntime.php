@@ -463,6 +463,8 @@ TIMER;
         $release = self::releaseMetadata();
         $db = $config['database'] ?? [];
         $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
+        $databaseSetup = is_array($config['_database_setup'] ?? null) ? $config['_database_setup'] : [];
+        $databaseSetupStrategy = (string) ($databaseSetup['strategy'] ?? ((string) ($config['mode'] ?? 'fresh') === 'fresh' ? 'baseline_schema' : self::upgradeStrategy()));
 
         return [
             'schema_version' => 1,
@@ -483,6 +485,14 @@ TIMER;
                 'username' => (string) ($db['username'] ?? ''),
                 'fresh_install_strategy' => (string) ($databaseInstaller['fresh_install_strategy'] ?? $databaseInstaller['fresh_strategy'] ?? 'baseline_schema'),
                 'baseline_schema' => self::baselineSchemaRelativePath(),
+                'upgrade_strategy' => self::upgradeStrategy(),
+            ],
+            'database_setup' => [
+                'strategy' => $databaseSetupStrategy,
+                'baseline_schema' => self::baselineSchemaRelativePath(),
+                'baseline_schema_used' => $databaseSetupStrategy === 'baseline_schema' && ! ($databaseSetup['skipped'] ?? false),
+                'migration_rows' => $databaseSetup['migration_rows'] ?? null,
+                'upgrade_strategy' => self::upgradeStrategy(),
             ],
             'services' => [$serviceArtifact],
             'health' => [
@@ -603,6 +613,14 @@ TIMER;
         self::writeJson($path, $report);
     }
 
+    public static function upgradeStrategy(): string
+    {
+        $release = self::releaseMetadata();
+        $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
+
+        return (string) ($databaseInstaller['upgrade_strategy'] ?? 'laravel_migrations');
+    }
+
     public static function appendLog(string $message, string $level = 'info'): void
     {
         self::ensureDir(self::storageDir());
@@ -680,6 +698,7 @@ TIMER;
                 'stdout' => sprintf('Applied baseline schema %s (%d statements).', self::baselineSchemaRelativePath(), count($statements)),
                 'stderr' => '',
                 'statements' => count($statements),
+                'migration_rows' => self::migrationRows($pdo),
             ];
         } catch (Throwable $exception) {
             self::appendLog('Baseline schema failed: ' . $exception->getMessage(), 'error');
@@ -720,6 +739,15 @@ TIMER;
             (string) ($db['password'] ?? ''),
             [PDO::ATTR_TIMEOUT => 10, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
+    }
+
+    private static function migrationRows(PDO $pdo): int
+    {
+        try {
+            return (int) $pdo->query('SELECT COUNT(*) FROM `migrations`')->fetchColumn();
+        } catch (Throwable) {
+            return 0;
+        }
     }
 
     private static function splitSqlStatements(string $sql): array

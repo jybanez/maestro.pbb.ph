@@ -150,6 +150,7 @@ try {
     if (($migrations['exit_code'] ?? 1) !== 0) {
         throw new RuntimeException('Database setup failed: ' . trim((string) (($migrations['stderr'] ?? '') ?: ($migrations['stdout'] ?? ''))));
     }
+    $config['_database_setup'] = $migrations;
     $databaseStrategy = (string) ($migrations['strategy'] ?? 'laravel_migrations');
     $databaseMessage = match ($databaseStrategy) {
         'baseline_schema' => 'Fresh database baseline schema applied.',
@@ -197,6 +198,13 @@ try {
                 'migrations_ran' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'laravel_migrations',
                 'baseline_schema_applied' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'baseline_schema',
                 'seeders_ran' => ! ($seeders['skipped'] ?? false),
+            ],
+            'database_setup' => [
+                'strategy' => $databaseStrategy,
+                'baseline_schema' => $migrations['schema'] ?? null,
+                'baseline_schema_used' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'baseline_schema',
+                'migration_rows' => $migrations['migration_rows'] ?? null,
+                'upgrade_strategy' => MaestroInstallerRuntime::upgradeStrategy(),
             ],
             'admin' => [
                 'email' => $admin['email'] ?? null,
