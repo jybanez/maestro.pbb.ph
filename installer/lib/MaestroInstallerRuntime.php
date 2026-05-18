@@ -163,6 +163,10 @@ final class MaestroInstallerRuntime
             $errors[] = ['id' => 'app.install_path', 'message' => 'Install path is required.'];
         }
 
+        foreach (self::boundaryValidationErrors($config) as $error) {
+            $errors[] = $error;
+        }
+
         if (! filter_var((string) ($config['app']['app_url'] ?? ''), FILTER_VALIDATE_URL)) {
             $errors[] = ['id' => 'app.app_url', 'message' => 'APP_URL must be a valid URL.'];
         }
@@ -213,7 +217,8 @@ final class MaestroInstallerRuntime
         $publicPath = (string) ($config['app']['public_path'] ?? '');
         $db = $config['database'] ?? [];
         $checks = [];
-        $runtimeDirs = self::repairRuntimeDirectories();
+        $installPathMatchesRoot = self::pathsEquivalent($installPath, $root);
+        $publicPathWithinRoot = $publicPath !== '' && self::pathIsWithin($publicPath, $root);
 
         $checks[] = self::check('php.version', 'PHP version', version_compare(PHP_VERSION, '8.2.0', '>='), 'PHP ' . PHP_VERSION, true);
 
@@ -223,16 +228,31 @@ final class MaestroInstallerRuntime
         }
 
         $checks[] = self::check('filesystem.install_path.safe', 'Install path safety', self::isSafePath($installPath), $installPath ?: 'Missing install path', true);
+        $checks[] = self::check('filesystem.install_path.deployed_root', 'Install path matches deployed app root', $installPathMatchesRoot, $installPath ?: 'Missing install path', true);
         $checks[] = self::check('filesystem.install_path.writable', 'Install path writable', is_dir($installPath) && is_writable($installPath), $installPath, true);
         $checks[] = self::check('filesystem.public_path', 'Public path exists', is_dir($publicPath), $publicPath, true);
-        foreach ($runtimeDirs as $id => $result) {
-            $checks[] = self::check(
-                "filesystem.{$id}.writable",
-                $result['label'],
-                $result['ok'],
-                $result['message'],
-                true
-            );
+        $checks[] = self::check('filesystem.public_path.boundary', 'Public path stays under install path', $publicPathWithinRoot, $publicPath ?: 'Missing public path', true);
+
+        if ($installPathMatchesRoot) {
+            foreach (self::repairRuntimeDirectories() as $id => $result) {
+                $checks[] = self::check(
+                    "filesystem.{$id}.writable",
+                    $result['label'],
+                    $result['ok'],
+                    $result['message'],
+                    true
+                );
+            }
+        } else {
+            foreach (self::runtimeDirectoryDefinitions() as $id => $directory) {
+                $checks[] = self::check(
+                    "filesystem.{$id}.writable",
+                    $directory['label'],
+                    false,
+                    'Skipped because app.install_path does not match the deployed app root.',
+                    true
+                );
+            }
         }
         $checks[] = self::check('laravel.artisan', 'Laravel artisan present', is_file($root . '/artisan'), $root . '/artisan', true);
         $checks[] = self::check('laravel.vendor', 'Composer vendor present', is_file($root . '/vendor/autoload.php'), $root . '/vendor/autoload.php', true);
@@ -477,6 +497,7 @@ TIMER;
             'public_path' => (string) ($config['app']['public_path'] ?? ''),
             'app_url' => (string) ($config['app']['app_url'] ?? ''),
             'environment' => (string) ($config['app']['app_env'] ?? 'production'),
+            'filesystem_paths' => self::filesystemPathReport($config, [], $serviceArtifact),
             'database' => [
                 'driver' => 'mysql',
                 'host' => (string) ($db['host'] ?? ''),
@@ -542,7 +563,57 @@ TIMER;
             'services' => [],
             'warnings' => $warnings,
             'errors' => $errors,
+            'filesystem_paths' => self::filesystemPathReport($config),
         ], $extra['merge'] ?? []);
+    }
+
+    public static function filesystemPathReport(array $config, array $environment = [], array $serviceArtifact = []): array
+    {
+        $root = self::rootPath();
+        $publicPath = (string) ($config['app']['public_path'] ?? ($root . DIRECTORY_SEPARATOR . 'public'));
+        $createdDirectories = [
+            ['id' => 'installer_storage', 'path' => self::storageDir()],
+            ['id' => 'installer_generated', 'path' => self::storageDir() . DIRECTORY_SEPARATOR . self::GENERATED_DIR],
+        ];
+
+        foreach (self::runtimeDirectoryDefinitions() as $id => $directory) {
+            $createdDirectories[] = ['id' => $id, 'path' => $directory['path']];
+        }
+
+        $createdFiles = [
+            ['id' => 'environment', 'path' => $environment['path'] ?? ($root . DIRECTORY_SEPARATOR . '.env')],
+            ['id' => 'install_report', 'path' => self::reportPath()],
+            ['id' => 'install_manifest', 'path' => self::manifestPath()],
+            ['id' => 'installer_state', 'path' => self::statePath()],
+            ['id' => 'install_log', 'path' => self::logPath()],
+        ];
+
+        if (($environment['backup_path'] ?? null) !== null) {
+            $createdFiles[] = ['id' => 'environment_backup', 'path' => $environment['backup_path']];
+        }
+
+        if (($serviceArtifact['artifact'] ?? null) !== null) {
+            $createdFiles[] = ['id' => 'service_artifact', 'path' => $serviceArtifact['artifact']];
+        }
+
+        return [
+            'install_path' => $root,
+            'configured_install_path' => (string) ($config['app']['install_path'] ?? ''),
+            'public_path' => $publicPath,
+            'boundary' => [
+                'install_path_matches_deployed_root' => self::pathsEquivalent((string) ($config['app']['install_path'] ?? ''), $root),
+                'public_path_within_install_path' => $publicPath !== '' && self::pathIsWithin($publicPath, $root),
+            ],
+            'created_directories' => $createdDirectories,
+            'created_files' => $createdFiles,
+            'relied_on' => [
+                ['id' => 'deployed_root', 'path' => $root],
+                ['id' => 'public_path', 'path' => $publicPath],
+                ['id' => 'artisan', 'path' => $root . DIRECTORY_SEPARATOR . 'artisan'],
+                ['id' => 'composer_autoload', 'path' => $root . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php'],
+                ['id' => 'baseline_schema', 'path' => $root . DIRECTORY_SEPARATOR . self::baselineSchemaRelativePath()],
+            ],
+        ];
     }
 
     public static function buildStatus(): array
@@ -873,6 +944,63 @@ TIMER;
         return sprintf('%s:%d/%s as %s', (string) ($db['host'] ?? ''), (int) ($db['port'] ?? 3306), (string) ($db['database'] ?? ''), (string) ($db['username'] ?? ''));
     }
 
+    private static function boundaryValidationErrors(array $config): array
+    {
+        $root = self::rootPath();
+        $installPath = (string) ($config['app']['install_path'] ?? '');
+        $publicPath = (string) ($config['app']['public_path'] ?? ($root . DIRECTORY_SEPARATOR . 'public'));
+        $errors = [];
+
+        if ($installPath !== '' && ! self::pathsEquivalent($installPath, $root)) {
+            $errors[] = [
+                'id' => 'app.install_path.boundary',
+                'message' => "Install path must match the deployed app root: {$root}.",
+            ];
+        }
+
+        if ($publicPath === '' || ! self::pathIsWithin($publicPath, $root)) {
+            $errors[] = [
+                'id' => 'app.public_path.boundary',
+                'message' => "Public path must stay under the deployed app root: {$root}.",
+            ];
+        }
+
+        return $errors;
+    }
+
+    private static function pathsEquivalent(string $left, string $right): bool
+    {
+        $leftReal = realpath($left);
+        $rightReal = realpath($right);
+
+        if (is_string($leftReal) && is_string($rightReal)) {
+            return self::normalizePathForCompare($leftReal) === self::normalizePathForCompare($rightReal);
+        }
+
+        return self::normalizePathForCompare($left) === self::normalizePathForCompare($right);
+    }
+
+    private static function pathIsWithin(string $path, string $root): bool
+    {
+        $pathReal = realpath($path);
+        $rootReal = realpath($root);
+        $normalizedPath = self::normalizePathForCompare(is_string($pathReal) ? $pathReal : $path);
+        $normalizedRoot = self::normalizePathForCompare(is_string($rootReal) ? $rootReal : $root);
+
+        return $normalizedPath === $normalizedRoot || str_starts_with($normalizedPath, $normalizedRoot . DIRECTORY_SEPARATOR);
+    }
+
+    private static function normalizePathForCompare(string $path): string
+    {
+        $normalized = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, trim($path)), DIRECTORY_SEPARATOR);
+
+        if (strtolower(PHP_OS_FAMILY) === 'windows') {
+            $normalized = strtolower($normalized);
+        }
+
+        return $normalized;
+    }
+
     private static function isSafePath(string $path): bool
     {
         $trimmed = trim($path);
@@ -995,20 +1123,7 @@ TIMER;
 
     private static function repairRuntimeDirectories(): array
     {
-        $root = self::rootPath();
-        $directories = [
-            'storage' => ['label' => 'Storage root writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage'],
-            'storage_app' => ['label' => 'Storage app writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app'],
-            'storage_app_private' => ['label' => 'Storage private writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'private'],
-            'storage_app_public' => ['label' => 'Storage public writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'public'],
-            'storage_framework_cache' => ['label' => 'Storage framework cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache'],
-            'storage_framework_cache_data' => ['label' => 'Storage framework cache data writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'data'],
-            'storage_framework_sessions' => ['label' => 'Storage framework sessions writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'sessions'],
-            'storage_framework_testing' => ['label' => 'Storage framework testing writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'testing'],
-            'storage_framework_views' => ['label' => 'Storage framework views writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'views'],
-            'storage_logs' => ['label' => 'Storage logs writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'],
-            'bootstrap_cache' => ['label' => 'Bootstrap cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'bootstrap' . DIRECTORY_SEPARATOR . 'cache'],
-        ];
+        $directories = self::runtimeDirectoryDefinitions();
         $results = [];
 
         foreach ($directories as $id => $directory) {
@@ -1037,6 +1152,25 @@ TIMER;
         }
 
         return $results;
+    }
+
+    private static function runtimeDirectoryDefinitions(): array
+    {
+        $root = self::rootPath();
+
+        return [
+            'storage' => ['label' => 'Storage root writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage'],
+            'storage_app' => ['label' => 'Storage app writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app'],
+            'storage_app_private' => ['label' => 'Storage private writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'private'],
+            'storage_app_public' => ['label' => 'Storage public writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'public'],
+            'storage_framework_cache' => ['label' => 'Storage framework cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache'],
+            'storage_framework_cache_data' => ['label' => 'Storage framework cache data writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'data'],
+            'storage_framework_sessions' => ['label' => 'Storage framework sessions writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'sessions'],
+            'storage_framework_testing' => ['label' => 'Storage framework testing writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'testing'],
+            'storage_framework_views' => ['label' => 'Storage framework views writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'framework' . DIRECTORY_SEPARATOR . 'views'],
+            'storage_logs' => ['label' => 'Storage logs writable', 'path' => $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs'],
+            'bootstrap_cache' => ['label' => 'Bootstrap cache writable', 'path' => $root . DIRECTORY_SEPARATOR . 'bootstrap' . DIRECTORY_SEPARATOR . 'cache'],
+        ];
     }
 
     private static function summaryForStatus(string $status): string
