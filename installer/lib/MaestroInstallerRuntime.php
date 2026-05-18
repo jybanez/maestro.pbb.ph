@@ -308,7 +308,14 @@ final class MaestroInstallerRuntime
             return ['skipped' => true, 'exit_code' => 0, 'command' => 'migrate --force'];
         }
 
-        return self::runArtisan(['migrate', '--force']);
+        if ((string) ($config['mode'] ?? 'fresh') === 'fresh') {
+            return self::applyBaselineSchema($config);
+        }
+
+        $result = self::runArtisan(['migrate', '--force']);
+        $result['strategy'] = 'laravel_migrations';
+
+        return $result;
     }
 
     public static function runSeeders(array $config): array
@@ -455,6 +462,7 @@ TIMER;
     {
         $release = self::releaseMetadata();
         $db = $config['database'] ?? [];
+        $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
 
         return [
             'schema_version' => 1,
@@ -473,6 +481,8 @@ TIMER;
                 'port' => (int) ($db['port'] ?? 3306),
                 'database' => (string) ($db['database'] ?? ''),
                 'username' => (string) ($db['username'] ?? ''),
+                'fresh_strategy' => (string) ($databaseInstaller['fresh_strategy'] ?? 'baseline_schema'),
+                'baseline_schema' => (string) ($databaseInstaller['baseline_schema'] ?? self::baselineSchemaRelativePath()),
             ],
             'services' => [$serviceArtifact],
             'health' => [
@@ -637,6 +647,108 @@ TIMER;
     private static function runArtisan(array $args): array
     {
         return self::runCommand(array_merge([PHP_BINARY, 'artisan'], $args), self::rootPath());
+    }
+
+    private static function applyBaselineSchema(array $config): array
+    {
+        $path = self::baselineSchemaPath();
+        if (! is_file($path)) {
+            return [
+                'strategy' => 'baseline_schema',
+                'schema' => self::baselineSchemaRelativePath(),
+                'command' => 'baseline_schema',
+                'exit_code' => 1,
+                'stdout' => '',
+                'stderr' => "Baseline schema not found: {$path}",
+            ];
+        }
+
+        try {
+            $pdo = self::databaseConnection($config['database'] ?? []);
+            $statements = self::splitSqlStatements((string) file_get_contents($path));
+            foreach ($statements as $statement) {
+                $pdo->exec($statement);
+            }
+
+            self::appendLog('Fresh baseline schema applied: ' . $path);
+
+            return [
+                'strategy' => 'baseline_schema',
+                'schema' => self::baselineSchemaRelativePath(),
+                'command' => 'baseline_schema',
+                'exit_code' => 0,
+                'stdout' => sprintf('Applied baseline schema %s (%d statements).', self::baselineSchemaRelativePath(), count($statements)),
+                'stderr' => '',
+                'statements' => count($statements),
+            ];
+        } catch (Throwable $exception) {
+            self::appendLog('Baseline schema failed: ' . $exception->getMessage(), 'error');
+
+            return [
+                'strategy' => 'baseline_schema',
+                'schema' => self::baselineSchemaRelativePath(),
+                'command' => 'baseline_schema',
+                'exit_code' => 1,
+                'stdout' => '',
+                'stderr' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    private static function baselineSchemaRelativePath(): string
+    {
+        $release = self::releaseMetadata();
+        $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
+
+        return (string) ($databaseInstaller['baseline_schema'] ?? 'database/schema/mysql-fresh.sql');
+    }
+
+    private static function baselineSchemaPath(): string
+    {
+        return self::rootPath() . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, self::baselineSchemaRelativePath());
+    }
+
+    private static function databaseConnection(array $db): PDO
+    {
+        return new PDO(
+            sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', (string) ($db['host'] ?? ''), (int) ($db['port'] ?? 3306), (string) ($db['database'] ?? '')),
+            (string) ($db['username'] ?? ''),
+            (string) ($db['password'] ?? ''),
+            [PDO::ATTR_TIMEOUT => 10, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+    }
+
+    private static function splitSqlStatements(string $sql): array
+    {
+        $sql = preg_replace('/^\s*--.*$/m', '', $sql) ?? $sql;
+        $statements = [];
+        $buffer = '';
+        $quote = null;
+        $length = strlen($sql);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+            $buffer .= $char;
+
+            if (($char === '\'' || $char === '"') && ($i === 0 || $sql[$i - 1] !== '\\')) {
+                $quote = $quote === $char ? null : ($quote ?? $char);
+            }
+
+            if ($char === ';' && $quote === null) {
+                $statement = trim(substr($buffer, 0, -1));
+                if ($statement !== '') {
+                    $statements[] = $statement;
+                }
+                $buffer = '';
+            }
+        }
+
+        $tail = trim($buffer);
+        if ($tail !== '') {
+            $statements[] = $tail;
+        }
+
+        return $statements;
     }
 
     private static function runPhpSnippet(string $script, array $args, array $env = [], array $sensitiveValues = []): array

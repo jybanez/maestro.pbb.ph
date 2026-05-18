@@ -148,9 +148,15 @@ try {
 
     $migrations = MaestroInstallerRuntime::runMigrations($config);
     if (($migrations['exit_code'] ?? 1) !== 0) {
-        throw new RuntimeException('Migrations failed: ' . trim((string) (($migrations['stderr'] ?? '') ?: ($migrations['stdout'] ?? ''))));
+        throw new RuntimeException('Database setup failed: ' . trim((string) (($migrations['stderr'] ?? '') ?: ($migrations['stdout'] ?? ''))));
     }
-    $steps[] = ['id' => 'migrate', 'status' => ($migrations['skipped'] ?? false) ? 'skipped' : 'success', 'message' => ($migrations['skipped'] ?? false) ? 'Migrations skipped.' : 'Database migrations completed.'];
+    $databaseStrategy = (string) ($migrations['strategy'] ?? 'laravel_migrations');
+    $databaseMessage = match ($databaseStrategy) {
+        'baseline_schema' => 'Fresh database baseline schema applied.',
+        'laravel_migrations' => 'Database migrations completed.',
+        default => 'Database setup completed.',
+    };
+    $steps[] = ['id' => 'database', 'status' => ($migrations['skipped'] ?? false) ? 'skipped' : 'success', 'message' => ($migrations['skipped'] ?? false) ? 'Database setup skipped.' : $databaseMessage];
 
     $seeders = MaestroInstallerRuntime::runSeeders($config);
     if (($seeders['exit_code'] ?? 1) !== 0) {
@@ -186,7 +192,10 @@ try {
                 'generated_app_key' => $env['generated_app_key'] ?? false,
             ],
             'database' => [
-                'migrations_ran' => ! ($migrations['skipped'] ?? false),
+                'strategy' => $databaseStrategy,
+                'baseline_schema' => $migrations['schema'] ?? null,
+                'migrations_ran' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'laravel_migrations',
+                'baseline_schema_applied' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'baseline_schema',
                 'seeders_ran' => ! ($seeders['skipped'] ?? false),
             ],
             'admin' => [
