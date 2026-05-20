@@ -156,27 +156,32 @@ async function bootstrapApp() {
 }
 
 async function loadHelpers() {
-    const { helperUiBundleModules } = await import("/vendor/helpers.pbb.ph/dist/helpers.ui.bundle.min.js");
-    const getHelperExport = (modulePath, exportName) => {
-        const helperModule = helperUiBundleModules?.[modulePath];
-        const exported = helperModule?.[exportName];
-        if (typeof exported !== "function") {
-            throw new Error(`Missing Helper bundle export: ${modulePath}#${exportName}`);
-        }
+    const { uiLoader } = await import("/vendor/helpers.pbb.ph/js/ui/ui.loader.js");
+    uiLoader.setPreferBundles(true);
 
-        return exported;
-    };
-
-    const createNavbar = getHelperExport("./ui.navbar.js", "createNavbar");
-    const createGrid = getHelperExport("./ui.grid.js", "createGrid");
-    const createFormModal = getHelperExport("./ui.form.modal.js", "createFormModal");
-    const createLoginFormModal = getHelperExport("./ui.form.modal.presets.js", "createLoginFormModal");
-    const createReauthFormModal = getHelperExport("./ui.form.modal.presets.js", "createReauthFormModal");
-    const createAccountFormModal = getHelperExport("./ui.form.modal.presets.js", "createAccountFormModal");
-    const createChangePasswordFormModal = getHelperExport("./ui.form.modal.presets.js", "createChangePasswordFormModal");
-    const uiAlert = getHelperExport("./ui.dialog.js", "uiAlert");
-    const createToastStack = getHelperExport("./ui.toast.js", "createToastStack");
-    const createEmptyState = getHelperExport("./ui.empty.state.js", "createEmptyState");
+    const [
+        createNavbar,
+        createGrid,
+        createFormModal,
+        createLoginFormModal,
+        createReauthFormModal,
+        createAccountFormModal,
+        createChangePasswordFormModal,
+        uiAlert,
+        createToastStack,
+        createEmptyState,
+    ] = await Promise.all([
+        uiLoader.get("ui.navbar"),
+        uiLoader.get("ui.grid"),
+        uiLoader.get("ui.form.modal"),
+        uiLoader.get("ui.form.modal.login"),
+        uiLoader.get("ui.form.modal.reauth"),
+        uiLoader.get("ui.form.modal.account"),
+        uiLoader.get("ui.form.modal.change.password"),
+        uiLoader.get("ui.dialog.alert"),
+        uiLoader.get("ui.toast"),
+        uiLoader.get("ui.empty.state"),
+    ]);
 
     state.ui.navbar = createNavbar;
     state.ui.grid = createGrid;
