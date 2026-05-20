@@ -109,6 +109,10 @@ foreach ([
 
 $addDirectory($vendorBuildDir, 'vendor');
 
+assertRequiredPackageTargets($entries, $generatedFiles, [
+    'public/.htaccess',
+]);
+
 foreach ([
     'bootstrap/cache',
     'storage/app',
@@ -462,10 +466,33 @@ function normalizeZipPath(string $path): string
     return str_replace('\\', '/', $path);
 }
 
+function assertRequiredPackageTargets(array $entries, array $generatedFiles, array $requiredTargets): void
+{
+    $targets = array_fill_keys(array_keys($generatedFiles), true);
+    foreach ($entries as $entry) {
+        $targets[(string) ($entry['target'] ?? '')] = true;
+    }
+
+    $missing = [];
+    foreach ($requiredTargets as $target) {
+        if (! isset($targets[$target])) {
+            $missing[] = $target;
+        }
+    }
+
+    if ($missing !== []) {
+        throw new RuntimeException('Release package is missing required app-owned file(s): ' . implode(', ', $missing));
+    }
+}
+
 function shouldExcludePath(string $path): bool
 {
     $normalized = '/' . str_replace('\\', '/', $path);
     $normalizedLower = strtolower($normalized);
+
+    if ($normalizedLower === '/public/.htaccess') {
+        return false;
+    }
 
     foreach ([
         '/.git/',
