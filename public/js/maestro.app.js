@@ -56,6 +56,9 @@ const state = {
         selectedApplicationCode: "",
         lastIssuedToken: null,
     },
+    routing: {
+        useFrontControllerApiUrls: false,
+    },
     data: {
         loaded: false,
         loading: false,
@@ -77,6 +80,51 @@ const state = {
         queues: { search: "", appCode: "", activity: "" },
     },
 };
+
+function frontControllerApiUrl(url) {
+    const parsed = new URL(url, window.location.href);
+
+    if (parsed.pathname.startsWith("/index.php/")) {
+        return parsed.toString();
+    }
+
+    if (parsed.pathname.startsWith("/api/")) {
+        parsed.pathname = `/index.php${parsed.pathname}`;
+    }
+
+    return parsed.toString();
+}
+
+function enableFrontControllerApiUrls() {
+    if (state.routing.useFrontControllerApiUrls) {
+        return;
+    }
+
+    state.routing.useFrontControllerApiUrls = true;
+
+    for (const [key, value] of Object.entries(bootstrap.routes ?? {})) {
+        if (typeof value === "string") {
+            bootstrap.routes[key] = frontControllerApiUrl(value);
+        }
+    }
+}
+
+function routeUrl(key) {
+    const url = bootstrap.routes?.[key] ?? "";
+
+    return state.routing.useFrontControllerApiUrls ? frontControllerApiUrl(url) : url;
+}
+
+async function fetchRoute(key, options = {}) {
+    let response = await fetch(routeUrl(key), options);
+
+    if (response.status === 404 && !state.routing.useFrontControllerApiUrls) {
+        enableFrontControllerApiUrls();
+        response = await fetch(routeUrl(key), options);
+    }
+
+    return response;
+}
 
 bootstrapApp().catch((error) => {
     console.error("Failed to initialize Maestro app.", error);
@@ -806,7 +854,7 @@ function renderQueuesGrid() {
 }
 
 async function refreshCurrentUser() {
-    const response = await fetch(bootstrap.routes.user, {
+    const response = await fetchRoute("user", {
         credentials: "same-origin",
         headers: { Accept: "application/json" },
     });
@@ -1036,7 +1084,8 @@ function applyQueueFilters() {
 
 async function apiFetch(url, options = {}) {
     const { touchSession = true, ...fetchOptions } = options;
-    const response = await fetch(url, {
+    const apiUrl = state.routing.useFrontControllerApiUrls ? frontControllerApiUrl(url) : url;
+    let response = await fetch(apiUrl, {
         credentials: "same-origin",
         headers: {
             Accept: "application/json",
@@ -1046,6 +1095,20 @@ async function apiFetch(url, options = {}) {
         },
         ...fetchOptions,
     });
+
+    if (response.status === 404 && !state.routing.useFrontControllerApiUrls) {
+        enableFrontControllerApiUrls();
+        response = await fetch(frontControllerApiUrl(url), {
+            credentials: "same-origin",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": state.csrfToken,
+                ...(fetchOptions.headers || {}),
+            },
+            ...fetchOptions,
+        });
+    }
 
     if ((response.status === 401 || response.status === 419) && state.authenticated) {
         await handleExpiredSession();
@@ -1060,7 +1123,7 @@ async function apiFetch(url, options = {}) {
 }
 
 async function refreshCsrfToken() {
-    const response = await fetch(bootstrap.routes.csrfToken, {
+    const response = await fetchRoute("csrfToken", {
         credentials: "same-origin",
         headers: { Accept: "application/json" },
     });
@@ -1082,7 +1145,7 @@ async function openLoginModal() {
         async onSubmit(values, ctx) {
             await refreshCsrfToken();
 
-            const response = await fetch(bootstrap.routes.login, {
+            const response = await fetchRoute("login", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: {
@@ -1229,7 +1292,7 @@ async function handleExpiredSession() {
         async onSubmit(values, ctx) {
             await refreshCsrfToken();
 
-            const response = await fetch(bootstrap.routes.login, {
+            const response = await fetchRoute("login", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: {
@@ -1287,7 +1350,7 @@ async function handleExpiredSession() {
 }
 
 async function logout() {
-    const response = await fetch(bootstrap.routes.logout, {
+    const response = await fetchRoute("logout", {
         method: "POST",
         credentials: "same-origin",
         headers: {
