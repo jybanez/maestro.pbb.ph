@@ -74,6 +74,42 @@
         "telemetry_trace": { "type": "boolean" },
         "telemetry_token_last_used_at_update_interval_seconds": { "type": "integer", "minimum": 0 },
         "telemetry_slow_request_threshold_ms": { "type": "integer", "minimum": 1 },
+        "data_prep": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "verify": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "source": { "type": "string" },
+                "source_path": { "type": "string" },
+                "applications": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["app_code"],
+                    "additionalProperties": true,
+                    "properties": {
+                      "app_code": { "type": "string", "minLength": 1 },
+                      "telemetry_tokens": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["label"],
+                          "additionalProperties": true,
+                          "properties": {
+                            "label": { "type": "string", "minLength": 1 }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "populate": {
           "type": "object",
           "additionalProperties": true,

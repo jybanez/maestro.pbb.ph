@@ -41,6 +41,28 @@
       }
     }
   },
+  "data_prep": {
+    "version": 1,
+    "capabilities": {
+      "prepare_data": true,
+      "apply_settings": false,
+      "verify": true
+    },
+    "tools": {
+      "prepare_data": {
+        "path": "tools/populate-initial-data.php",
+        "description": "Prepare Relay and Realtime Maestro application profiles and runtime-injected telemetry token hashes.",
+        "config_section": "maestro.populate",
+        "default_source": "resources/data/maestro/applications.json"
+      },
+      "verify": {
+        "path": "tools/data-prep/verify.php",
+        "description": "Verify Relay and Realtime Maestro application profiles and active Primary telemetry token hashes.",
+        "config_section": "maestro.data_prep.verify",
+        "default_source": "resources/data/maestro/applications.json"
+      }
+    }
+  },
   "health": {
     "http": "/up",
     "bootstrap": "/api/bootstrap",
