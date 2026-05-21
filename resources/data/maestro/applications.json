@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "description": "Default PBB application profiles for Maestro Data Prep. Telemetry token values are injected by Kit at runtime and are not stored here.",
+  "applications": [
+    {
+      "app_code": "relay",
+      "display_name": "PBB Relay",
+      "environment": "production",
+      "base_url": "https://relay.pbb.ph",
+      "is_active": true,
+      "telemetry_tokens": [
+        {
+          "label": "Primary",
+          "runtime_injected": true
+        }
+      ]
+    },
+    {
+      "app_code": "realtime",
+      "display_name": "PBB Realtime",
+      "environment": "production",
+      "base_url": "https://realtime.pbb.ph",
+      "is_active": true,
+      "telemetry_tokens": [
+        {
+          "label": "Primary",
+          "runtime_injected": true
+        }
+      ]
+    }
+  ]
+}

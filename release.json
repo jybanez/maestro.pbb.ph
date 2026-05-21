@@ -36,6 +36,7 @@
         "path": "tools/populate-initial-data.php",
         "description": "Register known Maestro monitored applications and optional telemetry tokens.",
         "config_section": "maestro.populate",
+        "default_source": "resources/data/maestro/applications.json",
         "required": false
       }
     }

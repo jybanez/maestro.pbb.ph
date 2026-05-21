@@ -6,34 +6,20 @@
   "maestro": {
     "populate": {
       "enabled": true,
-      "applications": [
-        {
-          "app_code": "relay",
-          "display_name": "PBB Relay",
-          "environment": "production",
-          "base_url": "https://relay.pbb.ph",
-          "is_active": true,
-          "telemetry_tokens": [
-            {
-              "label": "Relay primary telemetry token",
-              "plain_text_token": "replace-with-kit-generated-token"
-            }
-          ]
-        },
-        {
-          "app_code": "Realtime",
-          "display_name": "PBB Realtime",
-          "environment": "production",
-          "base_url": "https://realtime.pbb.ph",
-          "is_active": true,
-          "telemetry_tokens": [
-            {
-              "label": "Realtime daemon telemetry token",
-              "plain_text_token": "replace-with-kit-generated-token"
-            }
-          ]
-        }
-      ],
+      "telemetry_tokens": {
+        "relay": [
+          {
+            "label": "Primary",
+            "plain_text_token": "replace-with-kit-generated-token"
+          }
+        ],
+        "realtime": [
+          {
+            "label": "Primary",
+            "plain_text_token": "replace-with-kit-generated-token"
+          }
+        ]
+      },
       "options": {
         "overwrite_existing": false,
         "deactivate_missing": false

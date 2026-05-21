@@ -11,7 +11,22 @@ It supports:
 - idempotent application upserts by `app_code`
 - optional telemetry token creation by label
 
-Expected config lives under `maestro.populate`. Telemetry token secrets may be supplied as `plain_text_token` or `token_hash`; reports never print raw token values.
+Expected config lives under `maestro.populate`. When `applications` is omitted, the tool loads packaged defaults from `resources/data/maestro/applications.json` for Relay and Realtime. Telemetry token secrets may be supplied at runtime as `plain_text_token` or `token_hash`; reports never print raw token values and only publish `token_supplied`.
+
+Kit may inject generated token values without replacing the packaged application profile source:
+
+```json
+{
+  "maestro": {
+    "populate": {
+      "telemetry_tokens": {
+        "relay": [{ "label": "Primary", "plain_text_token": "<kit-generated>" }],
+        "realtime": [{ "label": "Primary", "plain_text_token": "<kit-generated>" }]
+      }
+    }
+  }
+}
+```
 
 Example:
 

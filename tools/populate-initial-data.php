@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 const MAESTRO_POPULATE_TOOL = 'populate_initial_data';
 const MAESTRO_POPULATE_VERSION = '1.0.0';
+const MAESTRO_DEFAULT_SOURCE = __DIR__ . '/../resources/data/maestro/applications.json';
 
 function usage(): void
 {
@@ -73,6 +74,133 @@ function read_json(string $path): array
     return $decoded;
 }
 
+function source_applications(array $populate): array
+{
+    $configured = $populate['applications'] ?? null;
+    if (is_array($configured) && $configured !== []) {
+        return [
+            'applications' => merge_runtime_tokens($configured, $populate),
+            'source' => [
+                'id' => 'config',
+                'path' => 'maestro.populate.applications',
+                'status' => 'success',
+                'default_used' => false,
+            ],
+        ];
+    }
+
+    $sourcePath = trim((string) ($populate['source'] ?? $populate['source_path'] ?? ''));
+    if ($sourcePath === '') {
+        $sourcePath = MAESTRO_DEFAULT_SOURCE;
+    } elseif (! preg_match('/^[a-zA-Z]:[\\\\\\/]|^\\\\\\\\|^\\//', $sourcePath)) {
+        $sourcePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sourcePath);
+    }
+
+    $source = read_json($sourcePath);
+    $applications = is_array($source['applications'] ?? null) ? $source['applications'] : [];
+
+    return [
+        'applications' => merge_runtime_tokens($applications, $populate),
+        'source' => [
+            'id' => $sourcePath === MAESTRO_DEFAULT_SOURCE ? 'packaged_default' : 'configured_source',
+            'path' => $sourcePath,
+            'status' => 'success',
+            'default_used' => $sourcePath === MAESTRO_DEFAULT_SOURCE,
+        ],
+    ];
+}
+
+function merge_runtime_tokens(array $applications, array $populate): array
+{
+    $overlays = runtime_token_overlays($populate);
+    if ($overlays === []) {
+        return $applications;
+    }
+
+    foreach ($applications as $index => $application) {
+        if (! is_array($application)) {
+            continue;
+        }
+
+        $appCode = (string) ($application['app_code'] ?? '');
+        if ($appCode === '' || ! isset($overlays[$appCode])) {
+            continue;
+        }
+
+        $existing = is_array($application['telemetry_tokens'] ?? null) ? $application['telemetry_tokens'] : [];
+        $applications[$index]['telemetry_tokens'] = merge_tokens_by_label($existing, $overlays[$appCode]);
+    }
+
+    return $applications;
+}
+
+function runtime_token_overlays(array $populate): array
+{
+    $overlays = [];
+    foreach (['telemetry_tokens', 'generated_telemetry_tokens', 'runtime_telemetry_tokens', 'application_tokens'] as $key) {
+        if (! is_array($populate[$key] ?? null)) {
+            continue;
+        }
+
+        foreach (normalize_token_overlay_entries($populate[$key]) as $entry) {
+            $appCode = (string) ($entry['app_code'] ?? '');
+            if ($appCode === '') {
+                continue;
+            }
+            unset($entry['app_code']);
+            $overlays[$appCode][] = $entry;
+        }
+    }
+
+    return $overlays;
+}
+
+function normalize_token_overlay_entries(array $tokens): array
+{
+    $entries = [];
+    foreach ($tokens as $key => $value) {
+        if (is_string($key) && is_array($value)) {
+            foreach (array_is_list($value) ? $value : [$value] as $token) {
+                if (is_array($token)) {
+                    $token['app_code'] = $token['app_code'] ?? $key;
+                    $entries[] = $token;
+                }
+            }
+            continue;
+        }
+
+        if (is_array($value)) {
+            $entries[] = $value;
+        }
+    }
+
+    return $entries;
+}
+
+function merge_tokens_by_label(array $baseTokens, array $overlayTokens): array
+{
+    $merged = [];
+    foreach ($baseTokens as $token) {
+        if (! is_array($token)) {
+            continue;
+        }
+        $merged[(string) ($token['label'] ?? count($merged))] = $token;
+    }
+
+    foreach ($overlayTokens as $token) {
+        if (! is_array($token)) {
+            continue;
+        }
+        $label = (string) ($token['label'] ?? '');
+        if ($label === '') {
+            continue;
+        }
+        $merged[$label] = array_replace($merged[$label] ?? [], $token);
+    }
+
+    return array_values($merged);
+}
+
 function populate_config(array $config): array
 {
     $populate = $config['maestro']['populate'] ?? $config['populate'] ?? [];
@@ -132,13 +260,18 @@ function validate_population(array $populate): array
             if (trim((string) ($token['label'] ?? '')) === '') {
                 $errors[] = ['id' => "applications.{$index}.telemetry_tokens.{$tokenIndex}.label", 'message' => 'Token label is required.'];
             }
-            if (token_hash_from_config($token) === null && ! (bool) ($token['revoke'] ?? false)) {
+            if (token_hash_from_config($token) === null && ! (bool) ($token['revoke'] ?? false) && ! token_allows_runtime_injection($token)) {
                 $errors[] = ['id' => "applications.{$index}.telemetry_tokens.{$tokenIndex}.token", 'message' => 'Token must provide plain_text_token or token_hash; placeholders are not accepted.'];
             }
         }
     }
 
     return $errors;
+}
+
+function token_allows_runtime_injection(array $token): bool
+{
+    return (bool) ($token['runtime_injected'] ?? $token['kit_generated'] ?? $token['required'] ?? false);
 }
 
 function boot_laravel(): void
@@ -172,7 +305,9 @@ try {
     $config = read_json($args['config']);
     $populate = populate_config($config);
     $enabled = (bool) ($populate['enabled'] ?? true);
-    $applications = is_array($populate['applications'] ?? null) ? $populate['applications'] : [];
+    $source = $enabled ? source_applications($populate) : ['applications' => [], 'source' => null];
+    $applications = $source['applications'];
+    $populate['applications'] = $applications;
     $errors = $enabled ? validate_population($populate) : [];
     $dryRun = (bool) $args['dry_run'] || (bool) ($populate['dry_run'] ?? false);
     $results = [];
@@ -183,6 +318,9 @@ try {
             'status' => $errors === [] ? 'success' : 'failed',
         ],
     ];
+    if (is_array($source['source'] ?? null)) {
+        $sources[] = $source['source'];
+    }
 
     if (! $enabled) {
         $report = [
