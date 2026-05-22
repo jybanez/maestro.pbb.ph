@@ -57,7 +57,7 @@
       },
       "verify": {
         "path": "tools/data-prep/verify.php",
-        "description": "Verify Relay and Realtime Maestro application profiles and active Primary telemetry token hashes.",
+        "description": "Verify Relay and Realtime Maestro application profiles, active Primary telemetry token hashes, and heartbeat freshness status.",
         "config_section": "maestro.data_prep.verify",
         "default_source": "resources/data/maestro/applications.json"
       }

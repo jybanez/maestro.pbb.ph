@@ -84,6 +84,8 @@
               "properties": {
                 "source": { "type": "string" },
                 "source_path": { "type": "string" },
+                "freshness_threshold_seconds": { "type": "integer", "minimum": 1 },
+                "require_fresh_heartbeat": { "type": "boolean" },
                 "applications": {
                   "type": "array",
                   "items": {

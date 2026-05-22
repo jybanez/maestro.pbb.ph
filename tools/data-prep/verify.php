@@ -117,6 +117,14 @@ function expected_tokens(array $application): array
     return $tokens;
 }
 
+function verify_options(array $verify): array
+{
+    return [
+        'freshness_threshold_seconds' => max(1, (int) ($verify['freshness_threshold_seconds'] ?? config('maestro.status.stale_threshold_seconds'))),
+        'require_fresh_heartbeat' => (bool) ($verify['require_fresh_heartbeat'] ?? false),
+    ];
+}
+
 function boot_laravel(): void
 {
     require __DIR__ . '/../../vendor/autoload.php';
@@ -150,8 +158,11 @@ try {
     $expectedApplications = expected_applications($config, $verify);
     $results = [];
     $errors = [];
+    $warnings = [];
 
     boot_laravel();
+    $options = verify_options($verify);
+    $now = Illuminate\Support\Carbon::now();
 
     foreach ($expectedApplications as $applicationConfig) {
         if (! is_array($applicationConfig)) {
@@ -168,6 +179,8 @@ try {
             ->first();
 
         $applicationOk = $application !== null && (bool) $application->is_active;
+        $expectedEnvironment = trim((string) ($applicationConfig['environment'] ?? ''));
+        $environmentOk = $application !== null && ($expectedEnvironment === '' || (string) $application->environment === $expectedEnvironment);
         $tokenResults = [];
         $expectedTokenLabels = expected_tokens($applicationConfig);
 
@@ -200,14 +213,40 @@ try {
             ];
         }
 
+        if ($application !== null && ! $environmentOk) {
+            $errors[] = [
+                'id' => "{$appCode}.environment",
+                'message' => "Maestro application {$appCode} environment does not match expected value {$expectedEnvironment}.",
+            ];
+        }
+
+        $heartbeat = heartbeat_status($application, $appCode, $applicationOk, $tokenResults, $now, $options['freshness_threshold_seconds']);
+        if ($heartbeat['status'] !== 'fresh') {
+            $message = "Maestro heartbeat for {$appCode} is {$heartbeat['status']}.";
+            if ($options['require_fresh_heartbeat']) {
+                $errors[] = [
+                    'id' => "{$appCode}.heartbeat",
+                    'message' => $message,
+                ];
+            } else {
+                $warnings[] = [
+                    'id' => "{$appCode}.heartbeat",
+                    'message' => $message,
+                ];
+            }
+        }
+
         $results[] = [
             'id' => "{$appCode}_application_profile",
             'type' => 'maestro_application_profile',
             'key' => $appCode,
-            'status' => $applicationOk && count(array_filter($tokenResults, static fn (array $token): bool => $token['status'] !== 'success')) === 0 ? 'success' : 'failed',
+            'status' => $applicationOk && $environmentOk && count(array_filter($tokenResults, static fn (array $token): bool => $token['status'] !== 'success')) === 0 ? 'success' : 'failed',
             'application_present' => $application !== null,
             'is_active' => $application !== null ? (bool) $application->is_active : false,
+            'environment' => $application !== null ? (string) $application->environment : null,
+            'expected_environment' => $expectedEnvironment !== '' ? $expectedEnvironment : null,
             'tokens' => $tokenResults,
+            'heartbeat' => $heartbeat,
         ];
     }
 
@@ -225,7 +264,7 @@ try {
         'finished_at' => date(DATE_ATOM),
         'summary' => $status === 'success'
             ? 'Maestro Data Prep verification passed.'
-            : 'Maestro Data Prep verification found missing application profiles or token hashes.',
+            : 'Maestro Data Prep verification found missing profile, token, environment, or heartbeat requirements.',
         'sources' => [
             [
                 'id' => 'config',
@@ -235,7 +274,7 @@ try {
         ],
         'results' => $results,
         'outputs' => [],
-        'warnings' => [],
+        'warnings' => $warnings,
         'errors' => $errors,
     ];
 
@@ -275,4 +314,55 @@ try {
     write_json($args['report'], $report);
     fwrite(STDERR, $exception->getMessage() . PHP_EOL);
     exit(1);
+}
+
+function heartbeat_status(?App\Models\MaestroApplication $application, string $appCode, bool $applicationOk, array $tokenResults, Illuminate\Support\Carbon $now, int $thresholdSeconds): array
+{
+    $tokenOk = count(array_filter($tokenResults, static fn (array $token): bool => $token['status'] !== 'success')) === 0;
+
+    if (! $applicationOk || ! $tokenOk) {
+        return [
+            'app_code' => $appCode,
+            'status' => 'rejected',
+            'last_seen_at' => null,
+            'age_seconds' => null,
+            'freshness_threshold_seconds' => $thresholdSeconds,
+            'worker_id' => null,
+            'worker_status' => null,
+        ];
+    }
+
+    $worker = $application?->workers()
+        ->whereNotNull('last_heartbeat_at')
+        ->orderByDesc('last_heartbeat_at')
+        ->first();
+
+    if ($worker === null || $worker->last_heartbeat_at === null) {
+        return [
+            'app_code' => $appCode,
+            'status' => 'missing',
+            'last_seen_at' => null,
+            'age_seconds' => null,
+            'freshness_threshold_seconds' => $thresholdSeconds,
+            'worker_id' => null,
+            'worker_status' => null,
+        ];
+    }
+
+    $lastSeenAt = $worker->last_heartbeat_at;
+    $ageSeconds = (int) $lastSeenAt->diffInSeconds($now);
+    $workerStatus = app(App\Services\Maestro\WorkerStatusResolver::class)->resolveForWorker($worker, $now);
+    $heartbeatStatus = $ageSeconds <= $thresholdSeconds && ! in_array($workerStatus, ['stale', 'stopped'], true)
+        ? 'fresh'
+        : 'stale';
+
+    return [
+        'app_code' => $appCode,
+        'status' => $heartbeatStatus,
+        'last_seen_at' => $lastSeenAt->toISOString(),
+        'age_seconds' => $ageSeconds,
+        'freshness_threshold_seconds' => $thresholdSeconds,
+        'worker_id' => (string) $worker->worker_id,
+        'worker_status' => $workerStatus,
+    ];
 }
