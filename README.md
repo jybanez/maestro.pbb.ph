@@ -20,7 +20,8 @@ Maestro is the central worker visibility surface for PBB projects.
 Current ecosystem alignment from this repository:
 
 - `PBB Maestro`: owns worker monitoring, heartbeat/event ingestion, stale detection, and operator visibility
-- `PBB Relay`: first confirmed telemetry producer and initial integration target
+- `PBB Relay`: telemetry producer using Maestro app code `relay`
+- `PBB Realtime`: telemetry producer using Maestro app code `realtime`
 - `helpers.pbb.ph`: shared UI runtime vendored locally for offline-capable operation
 - shared PBB browser-session conventions: login, logout, current-user, CSRF refresh, and re-auth flow
 
@@ -324,6 +325,60 @@ Build the Kit-consumable release ZIP from the repository root:
 ```
 
 The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `latest-manifest.json`. The ZIP deploys directly as the runnable Laravel app root, with `release.json`, `checksums.sha256`, `installer/install-run.php`, `installer/status.php`, and the Laravel runtime all at the archive root. It stamps package-only `build.*` metadata into the bundled `release.json` and excludes local secrets, caches, logs, test files, CI/build tooling, and the package builder itself from the distributable.
+
+## Kit Data Prep
+
+Maestro supports the standalone Kit Data Prep workflow declared in `release.json`.
+
+Current Data Prep metadata:
+
+- `prepare_data`: [`tools/populate-initial-data.php`](C:\wamp64\www\pbb\maestro\tools\populate-initial-data.php)
+- `apply_settings`: disabled for Maestro
+- `verify`: [`tools/data-prep/verify.php`](C:\wamp64\www\pbb\maestro\tools\data-prep\verify.php)
+
+Prepare Data loads packaged defaults from [`resources/data/maestro/applications.json`](C:\wamp64\www\pbb\maestro\resources\data\maestro\applications.json) when `maestro.populate.applications` is omitted. The defaults currently create:
+
+- `relay`: `PBB Relay`, environment `production`, base URL `https://relay.pbb.ph`
+- `realtime`: `PBB Realtime`, environment `production`, base URL `https://realtime.pbb.ph`
+
+Telemetry token values are runtime-injected by Kit under `maestro.populate.telemetry_tokens`; raw tokens are not stored in the static JSON source and are not printed in reports.
+
+Verify is read-only and checks:
+
+- expected application profile exists and is active
+- expected environment matches
+- active `Primary` telemetry token hash exists
+- heartbeat freshness for each expected app
+
+Heartbeat states reported by Verify:
+
+- `fresh`
+- `stale`
+- `missing`
+- `rejected`
+
+By default, non-fresh heartbeat states are warnings. Kit may make them blocking after producer Apply Settings and service restart by setting:
+
+```json
+{
+  "maestro": {
+    "data_prep": {
+      "verify": {
+        "require_fresh_heartbeat": true,
+        "freshness_threshold_seconds": 60
+      }
+    }
+  }
+}
+```
+
+Current cross-app operational notes from Kit retesting:
+
+- Relay must be configured with `RELAY_MAESTRO_BASE_URL=https://maestro.pbb.ph` and `RELAY_MAESTRO_APP_CODE=relay`; stale local values can produce Apache `404` responses before requests reach Maestro.
+- Relay requires `pbb-relay-worker` restart after its Maestro `.env` settings are changed.
+- Realtime should use `MAESTRO_BASE_URL=https://maestro.pbb.ph` and `MAESTRO_TELEMETRY_APP_CODE=realtime`.
+- Realtime heartbeat sends can fail before reaching Maestro if its telemetry HTTP client does not trust the Maestro TLS certificate; check for `cURL error 60` and apply the Kit CA-bundle/trust handoff or agreed TLS setting.
+- A direct unauthenticated POST to `https://maestro.pbb.ph/api/v1/telemetry/workers/heartbeat` returning `401` confirms the public Maestro ingestion route exists.
 
 ## Tests
 

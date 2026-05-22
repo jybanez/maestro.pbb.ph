@@ -23,6 +23,13 @@
       "options": {
         "overwrite_existing": false,
         "deactivate_missing": false
+      },
+      "dry_run": false
+    },
+    "data_prep": {
+      "verify": {
+        "freshness_threshold_seconds": 60,
+        "require_fresh_heartbeat": false
       }
     }
   }
