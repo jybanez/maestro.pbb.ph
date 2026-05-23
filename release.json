@@ -63,6 +63,17 @@
       }
     }
   },
+  "update": {
+    "contract_version": 1,
+    "channel": "testing",
+    "immutable_release": false,
+    "from_versions": ["1.0.0"],
+    "compatibility": "same-version-rebuild",
+    "requires_database_migration": false,
+    "requires_data_prep_rerun": false,
+    "requires_service_restart": false,
+    "rollback_supported": true
+  },
   "health": {
     "http": "/up",
     "bootstrap": "/api/bootstrap",
