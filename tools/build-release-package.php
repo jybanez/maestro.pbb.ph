@@ -274,6 +274,11 @@ function prepareProductionVendor(string $root, string $vendorBuildDir): void
         throw new RuntimeException("Composer production install failed:\n" . trim($result['stderr'] . "\n" . $result['stdout']));
     }
 
+    $vendorBinDir = $workDir . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'bin';
+    if (is_dir($vendorBinDir)) {
+        removeDirectory($vendorBinDir);
+    }
+
     $lock = readJson($root . DIRECTORY_SEPARATOR . 'composer.lock');
     $devPackages = [];
     foreach (($lock['packages-dev'] ?? []) as $package) {
