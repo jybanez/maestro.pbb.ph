@@ -227,6 +227,10 @@ function sanitizedComposerJson(string $path): array
 
     $composer['description'] = 'Production runtime metadata for PBB Maestro.';
     unset($composer['config']['allow-plugins']);
+    unset(
+        $composer['autoload']['psr-4']['Database\\Factories\\'],
+        $composer['autoload']['psr-4']['Database\\Seeders\\']
+    );
 
     return $composer;
 }
@@ -243,45 +247,16 @@ function prepareProductionVendor(string $root, string $vendorBuildDir): void
     }
     ensureDir($workDir);
 
-    $lock = readJson($root . DIRECTORY_SEPARATOR . 'composer.lock');
-    $devPackages = [];
-    foreach (($lock['packages-dev'] ?? []) as $package) {
-        if (! is_array($package) || ! isset($package['name'])) {
-            continue;
-        }
-
-        $devPackages[strtolower((string) $package['name'])] = true;
-    }
-
-    copyDirectoryFiltered(
-        $root . DIRECTORY_SEPARATOR . 'vendor',
-        $workDir . DIRECTORY_SEPARATOR . 'vendor',
-        static function (string $relativePath) use ($devPackages): bool {
-            $relativePath = str_replace('\\', '/', $relativePath);
-            if ($relativePath === 'bin' || str_starts_with($relativePath, 'bin/')) {
-                return false;
-            }
-
-            $parts = explode('/', $relativePath);
-            if (count($parts) >= 2) {
-                $packageName = strtolower($parts[0] . '/' . $parts[1]);
-                if (isset($devPackages[$packageName])) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-    );
-
     file_put_contents($workDir . DIRECTORY_SEPARATOR . 'composer.json', encodeJson(sanitizedComposerJson($root . DIRECTORY_SEPARATOR . 'composer.json')));
+    copy($root . DIRECTORY_SEPARATOR . 'composer.lock', $workDir . DIRECTORY_SEPARATOR . 'composer.lock');
 
     $composerCommand = array_merge(composerCommandPrefix(), [
-        'dump-autoload',
+        'install',
         '--no-dev',
-        '--optimize',
+        '--optimize-autoloader',
         '--no-interaction',
         '--no-scripts',
+        '--no-progress',
         '--quiet',
         '--working-dir',
         $workDir,
@@ -296,7 +271,17 @@ function prepareProductionVendor(string $root, string $vendorBuildDir): void
         putenv('COMPOSER_ROOT_VERSION=' . $previousRootVersion);
     }
     if ($result['exit_code'] !== 0) {
-        throw new RuntimeException("Composer production autoload generation failed:\n" . trim($result['stderr'] . "\n" . $result['stdout']));
+        throw new RuntimeException("Composer production install failed:\n" . trim($result['stderr'] . "\n" . $result['stdout']));
+    }
+
+    $lock = readJson($root . DIRECTORY_SEPARATOR . 'composer.lock');
+    $devPackages = [];
+    foreach (($lock['packages-dev'] ?? []) as $package) {
+        if (! is_array($package) || ! isset($package['name'])) {
+            continue;
+        }
+
+        $devPackages[strtolower((string) $package['name'])] = true;
     }
 
     filterComposerInstalledMetadata($workDir . DIRECTORY_SEPARATOR . 'vendor', $devPackages);
@@ -507,6 +492,7 @@ function shouldExcludePath(string $path): bool
         '/node_modules/',
         '/bootstrap/cache/',
         '/database/factories/',
+        '/database/seeders/',
         '/installer/docs/',
         '/resources/css/',
         '/resources/js/',
