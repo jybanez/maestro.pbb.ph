@@ -344,6 +344,14 @@ final class MaestroInstallerRuntime
             return ['skipped' => true, 'exit_code' => 0, 'command' => 'db:seed --force'];
         }
 
+        if ((string) (($config['_database_setup']['strategy'] ?? '') ?: '') === 'baseline_schema') {
+            return ['skipped' => true, 'exit_code' => 0, 'command' => 'db:seed --force', 'reason' => 'baseline_schema'];
+        }
+
+        if (! is_file(self::root() . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'seeders' . DIRECTORY_SEPARATOR . 'DatabaseSeeder.php')) {
+            return ['skipped' => true, 'exit_code' => 0, 'command' => 'db:seed --force', 'reason' => 'database_seeder_absent'];
+        }
+
         return self::runArtisan(['db:seed', '--force']);
     }
 
