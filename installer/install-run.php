@@ -94,7 +94,7 @@ $mode = (string) ($config['mode'] ?? 'fresh');
 $steps = [];
 
 try {
-    $errors = MaestroInstallerRuntime::validateConfig($config, ! in_array($mode, ['preflight', 'repair'], true));
+    $errors = MaestroInstallerRuntime::validateConfig($config, ! in_array($mode, ['preflight', 'upgrade', 'repair'], true));
     if ($errors !== []) {
         $report = MaestroInstallerRuntime::buildReport($config, 'failed', [
             ['id' => 'config', 'status' => 'failed', 'message' => 'Installer configuration is incomplete.'],
