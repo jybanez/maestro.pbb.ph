@@ -52,7 +52,7 @@
     },
     "admin": {
       "type": "object",
-      "required": ["name", "email", "password"],
+      "required": ["name", "email"],
       "additionalProperties": true,
       "properties": {
         "strategy": { "type": "string", "enum": ["create_if_missing"] },

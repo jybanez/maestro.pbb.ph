@@ -285,6 +285,10 @@ final class MaestroInstallerRuntime
 
         $root = self::rootPath();
         $envPath = $root . DIRECTORY_SEPARATOR . '.env';
+        if (in_array((string) ($config['mode'] ?? 'fresh'), ['upgrade', 'repair'], true) && is_file($envPath) && ! (bool) ($config['options']['overwrite_env'] ?? false)) {
+            return ['skipped' => true, 'path' => $envPath, 'reason' => 'preserve_existing_env'];
+        }
+
         $examplePath = $root . DIRECTORY_SEPARATOR . '.env.example';
         $content = is_file($envPath)
             ? (string) file_get_contents($envPath)
@@ -376,6 +380,10 @@ final class MaestroInstallerRuntime
 
     public static function bootstrapAdmin(array $config): array
     {
+        if (in_array((string) ($config['mode'] ?? 'fresh'), ['upgrade', 'repair'], true)) {
+            return ['skipped' => true, 'email' => (string) ($config['admin']['email'] ?? ''), 'created' => false, 'overwritten' => false, 'reason' => 'preserve_existing_admin'];
+        }
+
         $email = (string) ($config['admin']['email'] ?? '');
         $name = (string) ($config['admin']['name'] ?? '');
         $password = (string) ($config['admin']['password'] ?? '');

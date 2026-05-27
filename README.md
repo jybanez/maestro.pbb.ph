@@ -326,6 +326,12 @@ Build the Kit-consumable release ZIP from the repository root:
 
 The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `latest-manifest.json`. The ZIP deploys directly as the runnable Laravel app root, with `release.json`, `checksums.sha256`, `installer/install-run.php`, `installer/status.php`, and the Laravel runtime all at the archive root. It creates a temporary clean Composer stage, runs `composer install --no-dev --optimize-autoloader`, then zips that production vendor tree so the local development checkout remains untouched. It stamps package-only `build.*` metadata into the bundled `release.json` and excludes local secrets, caches, logs, test files, database factories/seeders, CI/build tooling, and the package builder itself from the distributable. Fresh Kit installs use the baseline schema and installer admin bootstrap, so Laravel seeders are skipped unless an upgrade/repair flow explicitly ships a production seeder.
 
+## Kit Updater Contract
+
+Maestro release bundles include `release.json.update` metadata for Kit's updater planner. Current 1.0.0 testing bundles declare `same-version-rebuild`, no required database migration, no required Data Prep rerun, no required service restart, and rollback support for file-level redeploys with the same 1.0.0 database shape.
+
+`installer/install-run.php` supports `--mode upgrade` and `--mode repair` for already installed app roots. These modes preserve an existing `.env` unless `options.overwrite_env=true`, keep runtime storage intact, run Laravel migrations only, skip packaged seeders when no production seeder exists, skip admin bootstrap to avoid password resets, regenerate Laravel caches, emit a normal install report/manifest with the requested mode, and generate scheduler service registration artifacts for Kit/operator handling. Rollback is file-level only for this release line because there are no irreversible 1.0.0 database migrations in the current bundle.
+
 ## Kit Data Prep
 
 Maestro supports the standalone Kit Data Prep workflow declared in `release.json`.
