@@ -330,6 +330,8 @@ The builder writes `storage/app/installer-build/pbb-maestro-m1-1.0.0.zip` plus `
 
 Maestro release bundles include `release.json.update` metadata for Kit's updater planner. Current 1.0.0 testing bundles declare `same-version-rebuild`, no required database migration, no required Data Prep rerun, no required service restart, and rollback support for file-level redeploys with the same 1.0.0 database shape.
 
+Maestro also declares its official updater source in `release.json`: `repository.type=github`, `repository.owner=jybanez`, `repository.repo=maestro.pbb.ph`, `updates.source=github-releases`, and `updates.channel=testing` for pre-release validation bundles. Production updater discovery should use the GitHub Release asset for `pbb-maestro-1.0.0.zip` and verify the reported SHA-256 before applying it.
+
 `installer/install-run.php` supports `--mode upgrade` and `--mode repair` for already installed app roots. These modes preserve an existing `.env` unless `options.overwrite_env=true`, keep runtime storage intact, run Laravel migrations only, skip packaged seeders when no production seeder exists, skip admin bootstrap to avoid password resets, regenerate Laravel caches, emit a normal install report/manifest with the requested mode, and generate scheduler service registration artifacts for Kit/operator handling. Rollback is file-level only for this release line because there are no irreversible 1.0.0 database migrations in the current bundle.
 
 ## Kit Data Prep

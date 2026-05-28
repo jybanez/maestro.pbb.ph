@@ -8,6 +8,16 @@
   "release_date": "2026-05-15",
   "release_name": "Kit Setup Installer Contract",
   "type": "laravel",
+  "repository": {
+    "type": "github",
+    "owner": "jybanez",
+    "repo": "maestro.pbb.ph",
+    "url": "https://github.com/jybanez/maestro.pbb.ph"
+  },
+  "updates": {
+    "source": "github-releases",
+    "channel": "testing"
+  },
   "requires": {
     "os": ["windows", "linux"],
     "php": ">=8.2",
