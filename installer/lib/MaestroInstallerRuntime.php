@@ -494,6 +494,27 @@ TIMER;
         ];
     }
 
+    public static function resolvedRuntimeServices(array $serviceArtifact = []): array
+    {
+        $release = self::releaseMetadata();
+        $services = is_array($release['runtime_services'] ?? null) ? $release['runtime_services'] : [];
+
+        return array_map(static function (array $service) use ($serviceArtifact): array {
+            $resolved = self::replaceRuntimePlaceholders($service);
+
+            if (($resolved['id'] ?? null) === ($serviceArtifact['id'] ?? null)) {
+                $resolved['artifact'] = $serviceArtifact['artifact'] ?? null;
+                $resolved['status'] = 'artifact-generated';
+                $resolved['registration'] = [
+                    'manager' => $serviceArtifact['manager'] ?? null,
+                    'registered' => $serviceArtifact['registered'] ?? false,
+                ];
+            }
+
+            return $resolved;
+        }, $services);
+    }
+
     public static function buildManifest(array $config, array $serviceArtifact, string $healthStatus): array
     {
         $release = self::releaseMetadata();
@@ -501,11 +522,13 @@ TIMER;
         $databaseInstaller = is_array($release['installer']['database'] ?? null) ? $release['installer']['database'] : [];
         $databaseSetup = is_array($config['_database_setup'] ?? null) ? $config['_database_setup'] : [];
         $databaseSetupStrategy = (string) ($databaseSetup['strategy'] ?? ((string) ($config['mode'] ?? 'fresh') === 'fresh' ? 'baseline_schema' : self::upgradeStrategy()));
+        $runtimeServices = self::resolvedRuntimeServices($serviceArtifact);
 
         return [
             'schema_version' => 1,
             'app' => self::APP_ID,
             'name' => self::APP_NAME,
+            'display_name' => (string) ($release['display_name'] ?? 'Maestro'),
             'version' => (string) ($release['version'] ?? '0.0.0-dev'),
             'installed_at' => date(DATE_ATOM),
             'install_mode' => (string) ($config['mode'] ?? 'fresh'),
@@ -531,6 +554,7 @@ TIMER;
                 'migration_rows' => $databaseSetup['migration_rows'] ?? null,
                 'upgrade_strategy' => self::upgradeStrategy(),
             ],
+            'runtime_services' => $runtimeServices,
             'services' => [$serviceArtifact],
             'health' => [
                 'last_checked_at' => date(DATE_ATOM),
@@ -576,6 +600,7 @@ TIMER;
                 'health' => rtrim((string) ($config['app']['app_url'] ?? ''), '/') . '/up',
                 'bootstrap' => rtrim((string) ($config['app']['app_url'] ?? ''), '/') . '/api/bootstrap',
             ],
+            'runtime_services' => self::resolvedRuntimeServices(),
             'services' => [],
             'warnings' => $warnings,
             'errors' => $errors,
@@ -657,9 +682,32 @@ TIMER;
                 ],
             ],
             'services' => $manifest['services'] ?? [],
+            'runtime_services' => $manifest['runtime_services'] ?? [],
             'warnings' => $report['warnings'] ?? [],
             'validation' => $validation,
         ];
+    }
+
+    private static function replaceRuntimePlaceholders(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            $resolved = [];
+            foreach ($value as $key => $item) {
+                $resolved[$key] = self::replaceRuntimePlaceholders($item);
+            }
+
+            return $resolved;
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        return str_replace(
+            ['{app.install_path}', '{runtime.php_binary}'],
+            [self::rootPath(), PHP_BINARY],
+            $value
+        );
     }
 
     public static function validateLocalState(): array

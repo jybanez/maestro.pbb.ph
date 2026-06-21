@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $outputDir = $root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'installer-build';
+$distDir = $root . DIRECTORY_SEPARATOR . 'dist';
 $phpBinary = PHP_BINARY;
 
 if (! class_exists(ZipArchive::class)) {
@@ -21,8 +22,8 @@ $timestamp = date('Ymd.His');
 $builtAt = date(DATE_ATOM);
 $gitCommit = trim(runCommand(['git', 'rev-parse', 'HEAD'], $root));
 $buildId = sprintf('%s-%d-%s-%s', $appId, $milestone, $version, $timestamp);
-$packageName = sprintf('%s-m%d-%s.zip', $appId, $milestone, $version);
-$packagePath = $outputDir . DIRECTORY_SEPARATOR . $packageName;
+$packageName = sprintf('%s-%s.zip', $appId, $version);
+$packagePath = $distDir . DIRECTORY_SEPARATOR . $packageName;
 $vendorBuildDir = $outputDir . DIRECTORY_SEPARATOR . 'vendor-prod';
 
 $release['display_version'] = $displayVersion;
@@ -35,6 +36,7 @@ $release['build'] = [
 ];
 
 ensureDir($outputDir);
+ensureDir($distDir);
 prepareProductionVendor($root, $vendorBuildDir);
 
 $entries = [];

@@ -15,6 +15,7 @@
 /.zed
 /auth.json
 /pbb-chat-token.local.json
+/dist/*.zip
 /node_modules
 /public/build
 /public/hot

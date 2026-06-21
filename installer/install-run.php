@@ -219,6 +219,7 @@ try {
                     'artifact' => $service['artifact'] ?? null,
                 ],
             ],
+            'runtime_services' => MaestroInstallerRuntime::resolvedRuntimeServices($service),
             'filesystem_paths' => MaestroInstallerRuntime::filesystemPathReport($config, $env, $service),
             'validation' => $validation,
         ],

@@ -2,6 +2,7 @@
   "schema_version": 1,
   "app": "pbb-maestro",
   "name": "PBB Maestro",
+  "display_name": "Maestro",
   "milestone": 1,
   "version": "1.0.0",
   "display_version": "v1-1.0.0",
@@ -89,14 +90,40 @@
     "bootstrap": "/api/bootstrap",
     "internal": "/internal-health"
   },
-  "services": [
+  "landing": {
+    "launcher": {
+      "icon": "activity",
+      "primary_launch_url": "https://maestro.pbb.ph/",
+      "audience": ["operator", "command", "admin"]
+    },
+    "public_gateway": {
+      "enabled": false
+    }
+  },
+  "runtime_services": [
     {
       "id": "pbb-maestro-scheduler",
       "name": "PBB Maestro Scheduler",
-      "kind": "scheduler",
-      "command": "php artisan schedule:run",
+      "type": "scheduled_command",
       "required": true,
-      "healthcheck": "php artisan maestro:reconcile-stale-workers"
+      "required_for_smoke": false,
+      "manager": "kit",
+      "working_directory": "{app.install_path}",
+      "command": "{runtime.php_binary}",
+      "args": ["artisan", "schedule:run"],
+      "interval_seconds": 60,
+      "startup_mode": "automatic",
+      "health_check": {
+        "type": "command",
+        "command": "{runtime.php_binary}",
+        "args": ["artisan", "maestro:reconcile-stale-workers"],
+        "timeout_seconds": 30
+      },
+      "logs": {
+        "stdout": "storage/logs/pbb-maestro-scheduler.out.log",
+        "stderr": "storage/logs/pbb-maestro-scheduler.err.log"
+      },
+      "notes": "Kit registers or starts the Laravel scheduler runner; the app installer only generates service artifacts."
     }
   ],
   "artifacts": {
