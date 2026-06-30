@@ -197,6 +197,21 @@
         }
       }
     },
+    "account": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "sso_enabled": { "type": "boolean" },
+        "base_url": { "type": "string", "format": "uri" },
+        "client_id": { "type": "string" },
+        "client_secret": { "type": "string" },
+        "redirect_uri": { "type": "string", "format": "uri" },
+        "post_logout_redirect_uri": { "type": "string", "format": "uri" },
+        "scopes": { "type": "string" },
+        "timeout_seconds": { "type": "integer", "minimum": 1 },
+        "ca_bundle": { "type": "string" }
+      }
+    },
     "services": {
       "type": "object",
       "additionalProperties": true,

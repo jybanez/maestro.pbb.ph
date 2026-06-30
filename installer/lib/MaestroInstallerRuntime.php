@@ -110,6 +110,17 @@ final class MaestroInstallerRuntime
                 'telemetry_token_last_used_at_update_interval_seconds' => 60,
                 'telemetry_slow_request_threshold_ms' => 1000,
             ],
+            'account' => [
+                'sso_enabled' => false,
+                'base_url' => 'https://account.pbb.ph',
+                'client_id' => 'pbb-maestro',
+                'client_secret' => '',
+                'redirect_uri' => 'https://maestro.pbb.ph/auth/account/callback',
+                'post_logout_redirect_uri' => 'https://maestro.pbb.ph',
+                'scopes' => 'openid profile',
+                'timeout_seconds' => 10,
+                'ca_bundle' => '',
+            ],
             'services' => [
                 'target_os' => $targetOs,
                 'manager' => $targetOs === 'windows' ? 'scheduled-task' : 'systemd',
@@ -794,6 +805,16 @@ TIMER;
             'MAESTRO_TELEMETRY_TRACE' => (bool) ($config['maestro']['telemetry_trace'] ?? false) ? 'true' : 'false',
             'MAESTRO_TELEMETRY_TOKEN_LAST_USED_AT_UPDATE_INTERVAL_SECONDS' => (string) ($config['maestro']['telemetry_token_last_used_at_update_interval_seconds'] ?? 60),
             'MAESTRO_TELEMETRY_SLOW_REQUEST_THRESHOLD_MS' => (string) ($config['maestro']['telemetry_slow_request_threshold_ms'] ?? 1000),
+            'PBB_ACCOUNT_SSO_ENABLED' => (bool) ($config['account']['sso_enabled'] ?? false) ? 'true' : 'false',
+            'PBB_ACCOUNT_BASE_URL' => (string) ($config['account']['base_url'] ?? 'https://account.pbb.ph'),
+            'PBB_ACCOUNT_CLIENT_ID' => (string) ($config['account']['client_id'] ?? 'pbb-maestro'),
+            'PBB_ACCOUNT_CLIENT_SECRET' => (string) ($config['account']['client_secret'] ?? ''),
+            'PBB_ACCOUNT_REDIRECT_URI' => (string) ($config['account']['redirect_uri'] ?? ($appUrl !== '' ? rtrim($appUrl, '/') . '/auth/account/callback' : 'https://maestro.pbb.ph/auth/account/callback')),
+            'PBB_ACCOUNT_POST_LOGOUT_REDIRECT_URI' => (string) ($config['account']['post_logout_redirect_uri'] ?? ($appUrl !== '' ? rtrim($appUrl, '/') : 'https://maestro.pbb.ph')),
+            'PBB_ACCOUNT_SCOPES' => (string) ($config['account']['scopes'] ?? 'openid profile'),
+            'PBB_ACCOUNT_TIMEOUT_SECONDS' => (string) ($config['account']['timeout_seconds'] ?? 10),
+            'PBB_ACCOUNT_CA_BUNDLE' => (string) ($config['account']['ca_bundle'] ?? ''),
+            'PBB_CA_BUNDLE' => (string) ($config['account']['ca_bundle'] ?? ''),
         ];
     }
 

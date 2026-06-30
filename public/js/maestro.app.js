@@ -142,6 +142,7 @@ bootstrapApp().catch((error) => {
 
 async function bootstrapApp() {
     await loadHelpers();
+    showAccountSsoFlash();
     bindGlobalEvents();
     bindSessionActivityEvents();
     renderAppShell();
@@ -153,6 +154,19 @@ async function bootstrapApp() {
     }
 
     await loadProtectedData();
+}
+
+function showAccountSsoFlash() {
+    const accountSso = bootstrap.auth?.accountSso ?? {};
+
+    if (accountSso.error) {
+        showToast(String(accountSso.error), "error");
+        return;
+    }
+
+    if (accountSso.success) {
+        showToast("Account sign in complete.", "success");
+    }
 }
 
 async function loadHelpers() {
@@ -283,7 +297,7 @@ function renderTopbar() {
         },
         onAction(action) {
             if (action?.id === "login") {
-                void openLoginModal();
+                void startLoginFlow();
             }
         },
         onActionMenuSelect(action, menuItem) {
@@ -375,12 +389,12 @@ function renderLoginRequired(pageDef) {
         <div class="maestro-page-toolbar-side"><button type="button" class="ui-button ui-button-primary" data-action="login">Open Login</button></div>
     `;
 
-    toolbar.querySelector('[data-action="login"]').addEventListener("click", () => openLoginModal());
+    toolbar.querySelector('[data-action="login"]').addEventListener("click", () => startLoginFlow());
     renderEmpty(surface, {
         title: `${pageDef.label} requires login`,
         description: "Start a session first so Maestro can load the protected operator data grids and summary pages.",
-        actionLabel: "Open Login",
-        onAction: () => openLoginModal(),
+        actionLabel: accountSsoReadyForLogin() ? "Sign in with Account" : "Open Login",
+        onAction: () => startLoginFlow(),
     });
 }
 
@@ -1141,6 +1155,24 @@ async function refreshCsrfToken() {
     setCsrfToken(payload.data?.csrf_token ?? state.csrfToken);
 }
 
+function accountSsoReadyForLogin() {
+    const accountSso = bootstrap.app?.accountSso ?? {};
+    const accountSsoError = bootstrap.auth?.accountSso?.error;
+
+    return Boolean(!accountSsoError && accountSso.enabled && accountSso.ready && accountSso.loginUrl);
+}
+
+function startLoginFlow() {
+    if (accountSsoReadyForLogin()) {
+        const loginUrl = new URL(bootstrap.app.accountSso.loginUrl, window.location.origin);
+        loginUrl.searchParams.set("return", `${window.location.pathname}${window.location.search}${window.location.hash}` || "/");
+        window.location.assign(loginUrl.toString());
+        return;
+    }
+
+    void openLoginModal();
+}
+
 async function openLoginModal() {
     const modal = state.ui.loginFormModal({
         title: "Operator Login",
@@ -1355,6 +1387,11 @@ async function handleExpiredSession() {
 }
 
 async function logout() {
+    if (bootstrap.app?.accountSso?.enabled && bootstrap.app?.accountSso?.logoutUrl) {
+        window.location.assign(bootstrap.app.accountSso.logoutUrl);
+        return;
+    }
+
     const response = await fetchRoute("logout", {
         method: "POST",
         credentials: "same-origin",

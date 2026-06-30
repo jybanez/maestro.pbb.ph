@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountSsoController;
 use App\Support\MaestroBootstrap;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,10 @@ Route::get('/up', function (Request $request) {
         'Cache-Control' => 'no-store, no-cache, must-revalidate',
     ]);
 });
+
+Route::get('/auth/account/redirect', [AccountSsoController::class, 'redirect'])->name('account.redirect');
+Route::get('/auth/account/callback', [AccountSsoController::class, 'callback'])->name('account.callback');
+Route::get('/auth/logout', [AccountSsoController::class, 'logout'])->name('account.logout');
 
 Route::get('/', function (Request $request) {
     return view('welcome', [

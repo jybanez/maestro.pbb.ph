@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Services\Account\AccountClientFactory;
 use App\Services\MaestroSettings;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 
 class MaestroBootstrap
@@ -11,6 +13,14 @@ class MaestroBootstrap
     {
         $user = $request->user();
         $accountAdmin = app(MaestroSettings::class)->accountAdminPayload();
+        $accountSsoEnabled = (bool) config('account.enabled');
+        $accountSsoReady = false;
+
+        if ($accountSsoEnabled) {
+            $accountSsoReady = Cache::remember('pbb_account_ready', 30, function () use ($request): bool {
+                return app(AccountClientFactory::class)->make($request)->isReady();
+            });
+        }
 
         return [
             'app' => [
@@ -20,9 +30,21 @@ class MaestroBootstrap
                 'helpers' => [
                     'status' => 'vendored',
                 ],
+                'accountSso' => [
+                    'enabled' => $accountSsoEnabled,
+                    'ready' => $accountSsoReady,
+                    'loginUrl' => route('account.redirect'),
+                    'logoutUrl' => route('account.logout'),
+                    'baseUrl' => config('account.base_url'),
+                    'clientId' => config('account.client_id'),
+                ],
             ],
             'auth' => [
                 'authenticated' => $user !== null,
+                'accountSso' => [
+                    'success' => (bool) $request->session()->pull('account_login_success', false),
+                    'error' => $request->session()->pull('account_login_error'),
+                ],
                 'account' => $user ? [
                     'id' => $user->id,
                     'pbbUserId' => $user->pbb_user_id,

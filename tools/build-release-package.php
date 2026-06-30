@@ -105,6 +105,7 @@ foreach ([
     'resources',
     'routes',
     'tools',
+    'vendor-local',
 ] as $dir) {
     $addDirectory($root . DIRECTORY_SEPARATOR . $dir, $dir);
 }

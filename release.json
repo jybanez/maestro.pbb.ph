@@ -21,6 +21,9 @@
   },
   "requires": {
     "os": ["windows", "linux"],
+    "runtime": {
+      "pbb_ca_bundle": true
+    },
     "php": ">=8.2",
     "php_extensions": ["json", "openssl", "mbstring", "fileinfo", "zip", "pdo", "pdo_mysql", "tokenizer", "xml", "ctype"],
     "mysql": ">=5.7",
