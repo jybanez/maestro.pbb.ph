@@ -159,6 +159,12 @@ try {
     };
     $steps[] = ['id' => 'database', 'status' => ($migrations['skipped'] ?? false) ? 'skipped' : 'success', 'message' => ($migrations['skipped'] ?? false) ? 'Database setup skipped.' : $databaseMessage];
 
+    $accountSettings = MaestroInstallerRuntime::applyAccountSettings($config);
+    if (($accountSettings['exit_code'] ?? 0) !== 0) {
+        throw new RuntimeException('Account settings failed: ' . trim((string) ($accountSettings['stderr'] ?? 'Unknown Account settings error.')));
+    }
+    $steps[] = ['id' => 'account_settings', 'status' => 'success', 'message' => 'Account integration settings applied to Maestro DB settings.'];
+
     $seeders = MaestroInstallerRuntime::runSeeders($config);
     if (($seeders['exit_code'] ?? 1) !== 0) {
         throw new RuntimeException('Seeders failed: ' . trim((string) (($seeders['stderr'] ?? '') ?: ($seeders['stdout'] ?? ''))));
@@ -205,6 +211,10 @@ try {
                 'baseline_schema_used' => ! ($migrations['skipped'] ?? false) && $databaseStrategy === 'baseline_schema',
                 'migration_rows' => $migrations['migration_rows'] ?? null,
                 'upgrade_strategy' => MaestroInstallerRuntime::upgradeStrategy(),
+            ],
+            'account_integration' => [
+                'settings_source' => 'database',
+                'settings_written' => $accountSettings['settings_written'] ?? [],
             ],
             'admin' => [
                 'email' => $admin['email'] ?? null,

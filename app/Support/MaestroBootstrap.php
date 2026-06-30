@@ -12,8 +12,10 @@ class MaestroBootstrap
     public static function build(Request $request): array
     {
         $user = $request->user();
-        $accountAdmin = app(MaestroSettings::class)->accountAdminPayload();
-        $accountSsoEnabled = (bool) config('account.enabled');
+        $settings = app(MaestroSettings::class);
+        $accountAdmin = $settings->accountAdminPayload();
+        $accountSso = $settings->accountSsoPayload();
+        $accountSsoEnabled = (bool) $accountSso['enabled'];
         $accountSsoReady = false;
 
         if ($accountSsoEnabled) {
@@ -35,8 +37,8 @@ class MaestroBootstrap
                     'ready' => $accountSsoReady,
                     'loginUrl' => route('account.redirect'),
                     'logoutUrl' => route('account.logout'),
-                    'baseUrl' => config('account.base_url'),
-                    'clientId' => config('account.client_id'),
+                    'baseUrl' => $accountSso['baseUrl'],
+                    'clientId' => $accountSso['clientId'],
                 ],
             ],
             'auth' => [
@@ -54,6 +56,10 @@ class MaestroBootstrap
                     'status' => $user->status,
                 ] : null,
                 'accountAdmin' => $user?->role === 'admin' ? $accountAdmin : null,
+                'settings' => $user?->role === 'admin' ? [
+                    'accountSso' => $accountSso,
+                    'accountAdmin' => $accountAdmin,
+                ] : null,
             ],
             'security' => [
                 'csrfToken' => $request->session()->token(),
@@ -68,6 +74,7 @@ class MaestroBootstrap
                 'userUpdate' => route('api.user.update'),
                 'userPassword' => route('api.user.password'),
                 'sessionPing' => route('api.session.ping'),
+                'accountIntegrationSettings' => route('api.settings.account-integration'),
                 'applications' => url('/api/v1/applications'),
                 'applicationTokensBase' => url('/api/v1/applications'),
                 'workers' => url('/api/v1/workers'),

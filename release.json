@@ -103,6 +103,8 @@
     "local_base_url": "https://maestro.pbb.ph",
     "sso": {
       "enabled_by_default": false,
+      "runtime_settings_source": "database",
+      "settings_ui": true,
       "callback_url": "https://maestro.pbb.ph/auth/account/callback",
       "post_logout_redirect_url": "https://maestro.pbb.ph",
       "scopes": ["openid", "profile"],
@@ -120,6 +122,7 @@
       "api_base_path": "/api/account-admin",
       "token_strategy": "kit-generate-or-import",
       "runtime_settings_source": "database",
+      "settings_ui": true,
       "bootstrap_env": {
         "enabled": "PBB_MAESTRO_ACCOUNT_ADMIN_API_ENABLED",
         "client": "PBB_MAESTRO_ACCOUNT_ADMIN_API_CLIENT",

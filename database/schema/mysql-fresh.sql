@@ -191,6 +191,33 @@ WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_admin_
 INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
 SELECT 'account_admin_api_client', '{"value":"pbb-account"}', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_admin_api_client');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_enabled', '{"value":false}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_enabled');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_base_url', '{"value":"https://account.pbb.ph"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_base_url');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_client_id', '{"value":"pbb-maestro"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_client_id');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_client_secret', '{"value":""}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_client_secret');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_redirect_uri', '{"value":"https://maestro.pbb.ph/auth/account/callback"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_redirect_uri');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_post_logout_redirect_uri', '{"value":"https://maestro.pbb.ph"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_post_logout_redirect_uri');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_scopes', '{"value":"openid profile"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_scopes');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_timeout_seconds', '{"value":10}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_timeout_seconds');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_sso_ca_bundle', '{"value":""}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_sso_ca_bundle');
 
 CREATE TABLE IF NOT EXISTS `migrations` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -229,5 +256,8 @@ WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000
 INSERT INTO `migrations` (`migration`, `batch`)
 SELECT '2026_07_01_000300_seed_account_admin_maestro_settings', 1
 WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000300_seed_account_admin_maestro_settings');
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_07_01_000400_seed_account_sso_maestro_settings', 1
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000400_seed_account_sso_maestro_settings');
 
 SET FOREIGN_KEY_CHECKS=1;

@@ -283,6 +283,7 @@ function renderTopbar() {
                     id: "user-menu",
                     label: getUserMenuLabel(),
                     menuItems: [
+                        ...(state.account?.role === "admin" ? [{ id: "settings", label: "Settings" }] : []),
                         { id: "account", label: "Account" },
                         { id: "logout", label: "Logout", danger: true },
                     ],
@@ -302,6 +303,10 @@ function renderTopbar() {
         },
         onActionMenuSelect(action, menuItem) {
             if (action?.id !== "user-menu") return;
+            if (menuItem?.id === "settings") {
+                void openAccountIntegrationSettingsModal();
+                return;
+            }
             if (menuItem?.id === "account") {
                 void openAccountModal();
                 return;
@@ -1299,6 +1304,126 @@ async function openChangePasswordModal() {
             applySessionPayload(result.data ?? {});
             render();
             showToast("Password updated.", "success");
+            return true;
+        },
+    });
+
+    modal.open();
+}
+
+async function openAccountIntegrationSettingsModal() {
+    if (!state.authenticated || state.account?.role !== "admin") return;
+
+    const response = await apiFetch(bootstrap.routes.accountIntegrationSettings, {
+        method: "GET",
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        showToast(String(payload.message ?? "Account integration settings could not be loaded."), "error");
+        return;
+    }
+
+    const accountSso = payload.data?.accountSso ?? {};
+    const accountAdmin = payload.data?.accountAdmin ?? {};
+    const modal = state.ui.formModal({
+        title: "Account Integration",
+        size: "lg",
+        submitLabel: "Save",
+        busyMessage: "Saving Account integration settings...",
+        initialValues: {
+            account_sso_enabled: Boolean(accountSso.enabled),
+            account_sso_base_url: accountSso.baseUrl ?? "https://account.pbb.ph",
+            account_sso_client_id: accountSso.clientId ?? "pbb-maestro",
+            account_sso_client_secret: "",
+            account_sso_redirect_uri: accountSso.redirectUri ?? "https://maestro.pbb.ph/auth/account/callback",
+            account_sso_post_logout_redirect_uri: accountSso.postLogoutRedirectUri ?? "https://maestro.pbb.ph",
+            account_sso_scopes: accountSso.scopes ?? "openid profile",
+            account_sso_timeout_seconds: accountSso.timeoutSeconds ?? 10,
+            account_sso_ca_bundle: accountSso.caBundle ?? "",
+            account_admin_api_enabled: Boolean(accountAdmin.enabled),
+            account_admin_api_client: accountAdmin.client ?? "pbb-account",
+            account_admin_api_token: "",
+            rotate_account_admin_api_token: false,
+        },
+        rows: [
+            [
+                { type: "alert", tone: "info", text: "Secrets are write-only. Leave secret/token fields blank to keep existing values." },
+            ],
+            [
+                { type: "checkbox", name: "account_sso_enabled", label: "Enable Account SSO" },
+                { type: "display", label: "OAuth Secret", value: accountSso.clientSecretConfigured ? "Configured" : "Not configured" },
+            ],
+            [
+                { type: "input", input: "url", name: "account_sso_base_url", label: "Account Base URL", required: true, span: 6 },
+                { type: "input", name: "account_sso_client_id", label: "Client ID", required: true, span: 6 },
+            ],
+            [
+                { type: "input", input: "password", name: "account_sso_client_secret", label: "Client Secret", autocomplete: "new-password", span: 12 },
+            ],
+            [
+                { type: "input", input: "url", name: "account_sso_redirect_uri", label: "Callback URL", required: true, span: 6 },
+                { type: "input", input: "url", name: "account_sso_post_logout_redirect_uri", label: "Post-Logout URL", required: true, span: 6 },
+            ],
+            [
+                { type: "input", name: "account_sso_scopes", label: "OAuth Scopes", required: true, span: 6 },
+                { type: "input", input: "number", name: "account_sso_timeout_seconds", label: "Timeout Seconds", min: 1, max: 120, required: true, span: 6 },
+            ],
+            [
+                { type: "input", name: "account_sso_ca_bundle", label: "CA Bundle Path", span: 12 },
+            ],
+            [
+                { type: "divider", label: "App Admin API" },
+            ],
+            [
+                { type: "checkbox", name: "account_admin_api_enabled", label: "Enable Account app-admin API" },
+                { type: "display", label: "App-Admin Token", value: accountAdmin.tokenConfigured ? "Configured" : "Not configured" },
+            ],
+            [
+                { type: "input", name: "account_admin_api_client", label: "Expected Account Client", required: true, span: 6 },
+                { type: "checkbox", name: "rotate_account_admin_api_token", label: "Generate new app-admin token", span: 6 },
+            ],
+            [
+                { type: "input", input: "password", name: "account_admin_api_token", label: "Set App-Admin Token", autocomplete: "new-password", span: 12 },
+            ],
+        ],
+        async onSubmit(values, ctx) {
+            const save = await apiFetch(bootstrap.routes.accountIntegrationSettings, {
+                method: "POST",
+                body: JSON.stringify({
+                    account_sso_enabled: Boolean(values.account_sso_enabled),
+                    account_sso_base_url: String(values.account_sso_base_url ?? "").trim(),
+                    account_sso_client_id: String(values.account_sso_client_id ?? "").trim(),
+                    account_sso_client_secret: String(values.account_sso_client_secret ?? ""),
+                    account_sso_redirect_uri: String(values.account_sso_redirect_uri ?? "").trim(),
+                    account_sso_post_logout_redirect_uri: String(values.account_sso_post_logout_redirect_uri ?? "").trim(),
+                    account_sso_scopes: String(values.account_sso_scopes ?? "").trim(),
+                    account_sso_timeout_seconds: Number(values.account_sso_timeout_seconds ?? 10),
+                    account_sso_ca_bundle: String(values.account_sso_ca_bundle ?? "").trim(),
+                    account_admin_api_enabled: Boolean(values.account_admin_api_enabled),
+                    account_admin_api_client: String(values.account_admin_api_client ?? "").trim(),
+                    account_admin_api_token: String(values.account_admin_api_token ?? ""),
+                    rotate_account_admin_api_token: Boolean(values.rotate_account_admin_api_token),
+                }),
+            });
+
+            const result = await save.json().catch(() => ({}));
+            if (!save.ok) {
+                ctx.setErrors(result.errors ?? {});
+                ctx.setFormError(String(result.message ?? "Account integration settings could not be saved."));
+                return false;
+            }
+
+            if (result.data?.rotatedAccountAdminApiToken) {
+                await state.ui.alert(`New app-admin token: ${result.data.rotatedAccountAdminApiToken}`, {
+                    title: "Copy Token",
+                    size: "sm",
+                });
+            }
+
+            bootstrap.auth.settings = result.data;
+            bootstrap.auth.accountAdmin = result.data?.accountAdmin ?? bootstrap.auth.accountAdmin;
+            showToast("Account integration settings saved.", "success");
             return true;
         },
     });

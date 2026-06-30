@@ -112,6 +112,63 @@ class AccountAdminApiTest extends TestCase
             ->assertJsonPath('message', 'This Maestro account is disabled.');
     }
 
+    public function test_admin_can_view_and_update_account_integration_settings(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson('/api/settings/account-integration')
+            ->assertOk()
+            ->assertJsonPath('data.accountSso.clientId', 'pbb-maestro')
+            ->assertJsonPath('data.accountAdmin.client', 'pbb-account');
+
+        $response = $this->actingAs($admin)
+            ->postJson('/api/settings/account-integration', [
+                'account_sso_enabled' => true,
+                'account_sso_base_url' => 'https://account.pbb.ph',
+                'account_sso_client_id' => 'pbb-maestro',
+                'account_sso_client_secret' => 'oauth-secret',
+                'account_sso_redirect_uri' => 'https://maestro.pbb.ph/auth/account/callback',
+                'account_sso_post_logout_redirect_uri' => 'https://maestro.pbb.ph',
+                'account_sso_scopes' => 'openid profile',
+                'account_sso_timeout_seconds' => 10,
+                'account_sso_ca_bundle' => 'C:\\wamp64\\certs\\pbb.ph\\pbb.ph.fullchain.crt',
+                'account_admin_api_enabled' => true,
+                'account_admin_api_client' => 'pbb-account',
+                'account_admin_api_token' => '',
+                'rotate_account_admin_api_token' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.accountSso.enabled', true)
+            ->assertJsonPath('data.accountSso.clientSecretConfigured', true)
+            ->assertJsonPath('data.accountAdmin.enabled', true)
+            ->assertJsonPath('data.accountAdmin.tokenConfigured', true);
+
+        $this->assertIsString($response->json('data.rotatedAccountAdminApiToken'));
+        $this->assertDatabaseHas('maestro_settings', [
+            'key' => 'account_sso_client_secret',
+        ]);
+        $this->assertDatabaseHas('maestro_settings', [
+            'key' => 'account_admin_api_token',
+        ]);
+    }
+
+    public function test_non_admin_cannot_update_account_integration_settings(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'user',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson('/api/settings/account-integration', [])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Only Maestro admins can update Account integration settings.');
+    }
+
     private function enableAccountAdmin(): void
     {
         $settings = app(MaestroSettings::class);

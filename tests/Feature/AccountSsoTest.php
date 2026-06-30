@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\MaestroSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -59,12 +60,15 @@ class AccountSsoTest extends TestCase
 
     private function enableAccountSso(): void
     {
-        config()->set('account.enabled', true);
-        config()->set('account.base_url', 'https://account.pbb.ph');
-        config()->set('account.client_id', 'pbb-maestro');
-        config()->set('account.client_secret', 'test-secret');
-        config()->set('account.redirect_uri', 'https://maestro.pbb.ph/auth/account/callback');
-        config()->set('account.post_logout_redirect_uri', 'https://maestro.pbb.ph');
-        config()->set('account.scopes', ['openid', 'profile']);
+        $settings = app(MaestroSettings::class);
+        $settings->put('account_sso_enabled', true);
+        $settings->put('account_sso_base_url', 'https://account.pbb.ph');
+        $settings->put('account_sso_client_id', 'pbb-maestro');
+        $settings->put('account_sso_client_secret', 'test-secret');
+        $settings->put('account_sso_redirect_uri', 'https://maestro.pbb.ph/auth/account/callback');
+        $settings->put('account_sso_post_logout_redirect_uri', 'https://maestro.pbb.ph');
+        $settings->put('account_sso_scopes', 'openid profile');
+        $settings->put('account_sso_timeout_seconds', 10);
+        $settings->put('account_sso_ca_bundle', '');
     }
 }

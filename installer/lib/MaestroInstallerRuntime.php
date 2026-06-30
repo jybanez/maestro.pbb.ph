@@ -120,6 +120,9 @@ final class MaestroInstallerRuntime
                 'scopes' => 'openid profile',
                 'timeout_seconds' => 10,
                 'ca_bundle' => '',
+                'app_admin_enabled' => false,
+                'app_admin_client' => 'pbb-account',
+                'app_admin_token' => '',
             ],
             'services' => [
                 'target_os' => $targetOs,
@@ -368,6 +371,47 @@ final class MaestroInstallerRuntime
         }
 
         return self::runArtisan(['db:seed', '--force']);
+    }
+
+    public static function applyAccountSettings(array $config): array
+    {
+        $account = $config['account'] ?? [];
+        $values = [
+            'account_sso_enabled' => (bool) ($account['sso_enabled'] ?? false),
+            'account_sso_base_url' => (string) ($account['base_url'] ?? 'https://account.pbb.ph'),
+            'account_sso_client_id' => (string) ($account['client_id'] ?? 'pbb-maestro'),
+            'account_sso_client_secret' => (string) ($account['client_secret'] ?? ''),
+            'account_sso_redirect_uri' => (string) ($account['redirect_uri'] ?? 'https://maestro.pbb.ph/auth/account/callback'),
+            'account_sso_post_logout_redirect_uri' => (string) ($account['post_logout_redirect_uri'] ?? 'https://maestro.pbb.ph'),
+            'account_sso_scopes' => (string) ($account['scopes'] ?? 'openid profile'),
+            'account_sso_timeout_seconds' => (int) ($account['timeout_seconds'] ?? 10),
+            'account_sso_ca_bundle' => (string) ($account['ca_bundle'] ?? ''),
+            'account_admin_api_enabled' => (bool) ($account['app_admin_enabled'] ?? false),
+            'account_admin_api_client' => (string) ($account['app_admin_client'] ?? 'pbb-account'),
+        ];
+
+        $appAdminToken = trim((string) ($account['app_admin_token'] ?? ''));
+        if ($appAdminToken !== '') {
+            $values['account_admin_api_token'] = $appAdminToken;
+        }
+
+        try {
+            $pdo = self::databaseConnection($config['database'] ?? []);
+            foreach ($values as $key => $value) {
+                $statement = $pdo->prepare(
+                    'INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`) VALUES (:setting_key, :setting_value, NOW(), NOW()) ' .
+                    'ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()'
+                );
+                $statement->execute([
+                    'setting_key' => $key,
+                    'setting_value' => json_encode(['value' => $value], JSON_UNESCAPED_SLASHES),
+                ]);
+            }
+
+            return ['skipped' => false, 'settings_written' => array_keys($values)];
+        } catch (Throwable $exception) {
+            return ['skipped' => false, 'exit_code' => 1, 'stderr' => $exception->getMessage()];
+        }
     }
 
     public static function optimizeRuntime(array $config): array
@@ -815,6 +859,9 @@ TIMER;
             'PBB_ACCOUNT_TIMEOUT_SECONDS' => (string) ($config['account']['timeout_seconds'] ?? 10),
             'PBB_ACCOUNT_CA_BUNDLE' => (string) ($config['account']['ca_bundle'] ?? ''),
             'PBB_CA_BUNDLE' => (string) ($config['account']['ca_bundle'] ?? ''),
+            'PBB_MAESTRO_ACCOUNT_ADMIN_API_ENABLED' => (bool) ($config['account']['app_admin_enabled'] ?? false) ? 'true' : 'false',
+            'PBB_MAESTRO_ACCOUNT_ADMIN_API_CLIENT' => (string) ($config['account']['app_admin_client'] ?? 'pbb-account'),
+            'PBB_MAESTRO_ACCOUNT_ADMIN_API_TOKEN' => (string) ($config['account']['app_admin_token'] ?? ''),
         ];
     }
 

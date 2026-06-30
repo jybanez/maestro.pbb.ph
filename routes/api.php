@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BootstrapController;
 use App\Http\Controllers\Api\AccountAdminController;
+use App\Http\Controllers\Api\AccountIntegrationSettingsController;
 use App\Http\Controllers\Api\V1\ApplicationIndexController;
 use App\Http\Controllers\Api\V1\ApplicationStoreController;
 use App\Http\Controllers\Api\V1\ApplicationTokenStoreController;
@@ -40,6 +41,8 @@ Route::middleware('web')->group(function (): void {
         Route::post('/user/password', UpdateUserPasswordController::class)->name('api.user.password');
         Route::get('/session/ping', SessionPingController::class)->name('api.session.ping');
         Route::post('/logout', LogoutController::class)->name('api.logout');
+        Route::get('/settings/account-integration', [AccountIntegrationSettingsController::class, 'show'])->name('api.settings.account-integration');
+        Route::post('/settings/account-integration', [AccountIntegrationSettingsController::class, 'update'])->name('api.settings.account-integration.update');
     });
 });
 

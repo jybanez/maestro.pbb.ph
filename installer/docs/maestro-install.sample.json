@@ -74,7 +74,10 @@
     "post_logout_redirect_uri": "https://maestro.pbb.ph",
     "scopes": "openid profile",
     "timeout_seconds": 10,
-    "ca_bundle": "C:\\wamp64\\certs\\pbb.ph\\pbb.ph.fullchain.crt"
+    "ca_bundle": "C:\\wamp64\\certs\\pbb.ph\\pbb.ph.fullchain.crt",
+    "app_admin_enabled": false,
+    "app_admin_client": "pbb-account",
+    "app_admin_token": ""
   },
   "services": {
     "target_os": "windows",

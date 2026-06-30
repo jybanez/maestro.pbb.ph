@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\Account\AccountClientFactory;
+use App\Services\MaestroSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,7 @@ class AccountSsoController extends Controller
 {
     public function redirect(Request $request, AccountClientFactory $accounts): RedirectResponse
     {
-        abort_unless(config('account.enabled'), 404);
+        abort_unless(app(MaestroSettings::class)->accountSsoConfig()['enabled'], 404);
 
         $request->session()->put('pbb_account.return_to', $this->safeReturnPath($request->query('return', '/')));
 
@@ -25,7 +26,7 @@ class AccountSsoController extends Controller
 
     public function callback(Request $request, AccountClientFactory $accounts): RedirectResponse
     {
-        abort_unless(config('account.enabled'), 404);
+        abort_unless(app(MaestroSettings::class)->accountSsoConfig()['enabled'], 404);
 
         try {
             $identity = $accounts->make($request)->handleCallback($request->query())->toArray();
@@ -54,7 +55,7 @@ class AccountSsoController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        if (! config('account.enabled')) {
+        if (! app(MaestroSettings::class)->accountSsoConfig()['enabled']) {
             return redirect('/');
         }
 
@@ -120,11 +121,12 @@ class AccountSsoController extends Controller
 
     private function accountLogoutUrl(): string
     {
-        $baseUrl = rtrim((string) config('account.base_url'), '/');
-        $postLogout = trim((string) config('account.post_logout_redirect_uri')) ?: url('/');
+        $config = app(MaestroSettings::class)->accountSsoConfig();
+        $baseUrl = rtrim((string) $config['base_url'], '/');
+        $postLogout = trim((string) $config['post_logout_redirect_uri']) ?: url('/');
 
         return $baseUrl.'/oauth/logout?'.http_build_query([
-            'client_id' => config('account.client_id'),
+            'client_id' => $config['client_id'],
             'post_logout_redirect_uri' => $postLogout,
         ]);
     }
