@@ -18,6 +18,12 @@ class LoginController extends Controller
             return ApiResponse::failure('The provided credentials are incorrect.');
         }
 
+        if ($request->user()?->status === 'disabled') {
+            Auth::logout();
+
+            return ApiResponse::failure('This Maestro account is disabled.', 403);
+        }
+
         $request->session()->regenerate();
 
         return ApiResponse::success([

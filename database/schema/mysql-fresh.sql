@@ -5,14 +5,18 @@ SET FOREIGN_KEY_CHECKS=0;
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pbb_user_id` varchar(26) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `email` varchar(191) NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `password` varchar(255) NOT NULL,
+  `role` varchar(40) NOT NULL DEFAULT 'user',
+  `status` varchar(40) NOT NULL DEFAULT 'active',
   `remember_token` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `users_pbb_user_id_unique` (`pbb_user_id`),
   UNIQUE KEY `users_email_unique` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -173,6 +177,21 @@ CREATE TABLE IF NOT EXISTS `maestro_worker_events` (
   CONSTRAINT `maestro_worker_events_maestro_worker_id_foreign` FOREIGN KEY (`maestro_worker_id`) REFERENCES `maestro_workers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `maestro_settings` (
+  `key` varchar(191) NOT NULL,
+  `value` text,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_admin_api_enabled', '{"value":false}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_admin_api_enabled');
+INSERT INTO `maestro_settings` (`key`, `value`, `created_at`, `updated_at`)
+SELECT 'account_admin_api_client', '{"value":"pbb-account"}', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `maestro_settings` WHERE `key` = 'account_admin_api_client');
+
 CREATE TABLE IF NOT EXISTS `migrations` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `migration` varchar(255) NOT NULL,
@@ -201,5 +220,14 @@ WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_03_17_040
 INSERT INTO `migrations` (`migration`, `batch`)
 SELECT '2026_03_17_040530_create_maestro_worker_events_table', 1
 WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_03_17_040530_create_maestro_worker_events_table');
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_07_01_000100_add_account_identity_fields_to_users_table', 1
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000100_add_account_identity_fields_to_users_table');
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_07_01_000200_create_maestro_settings_table', 1
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000200_create_maestro_settings_table');
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_07_01_000300_seed_account_admin_maestro_settings', 1
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_07_01_000300_seed_account_admin_maestro_settings');
 
 SET FOREIGN_KEY_CHECKS=1;

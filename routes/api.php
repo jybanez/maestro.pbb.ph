@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\BootstrapController;
+use App\Http\Controllers\Api\AccountAdminController;
 use App\Http\Controllers\Api\V1\ApplicationIndexController;
 use App\Http\Controllers\Api\V1\ApplicationStoreController;
 use App\Http\Controllers\Api\V1\ApplicationTokenStoreController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\V1\Telemetry\WorkerEventController;
 use App\Http\Controllers\Api\V1\Telemetry\WorkerHeartbeatController;
 use App\Http\Controllers\Api\V1\WorkerEventIndexController;
 use App\Http\Controllers\Api\V1\WorkerIndexController;
+use App\Http\Middleware\VerifyAccountAdminService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +42,16 @@ Route::middleware('web')->group(function (): void {
         Route::post('/logout', LogoutController::class)->name('api.logout');
     });
 });
+
+Route::prefix('account-admin')
+    ->middleware([VerifyAccountAdminService::class, 'throttle:120,1'])
+    ->group(function (): void {
+        Route::get('/meta', [AccountAdminController::class, 'meta']);
+        Route::get('/users/{pbbUserId}', [AccountAdminController::class, 'show']);
+        Route::put('/users/{pbbUserId}', [AccountAdminController::class, 'provision']);
+        Route::patch('/users/{pbbUserId}/role', [AccountAdminController::class, 'updateRole']);
+        Route::patch('/users/{pbbUserId}/status', [AccountAdminController::class, 'updateStatus']);
+    });
 
 Route::prefix('v1')->group(function (): void {
     Route::middleware(['web', 'auth'])->group(function (): void {

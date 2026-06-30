@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Services\MaestroSettings;
 use Illuminate\Http\Request;
 
 class MaestroBootstrap
@@ -9,6 +10,7 @@ class MaestroBootstrap
     public static function build(Request $request): array
     {
         $user = $request->user();
+        $accountAdmin = app(MaestroSettings::class)->accountAdminPayload();
 
         return [
             'app' => [
@@ -23,9 +25,13 @@ class MaestroBootstrap
                 'authenticated' => $user !== null,
                 'account' => $user ? [
                     'id' => $user->id,
+                    'pbbUserId' => $user->pbb_user_id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'role' => $user->role,
+                    'status' => $user->status,
                 ] : null,
+                'accountAdmin' => $user?->role === 'admin' ? $accountAdmin : null,
             ],
             'security' => [
                 'csrfToken' => $request->session()->token(),
