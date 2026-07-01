@@ -22,7 +22,8 @@ class AccountAdminApiTest extends TestCase
             ->assertJsonPath('data.roles.0.value', 'admin')
             ->assertJsonPath('data.roles.1.value', 'user')
             ->assertJsonPath('data.statuses.0.value', 'active')
-            ->assertJsonPath('data.statuses.1.value', 'disabled');
+            ->assertJsonPath('data.statuses.1.value', 'disabled')
+            ->assertJsonPath('data.capabilities.removeUser', true);
     }
 
     public function test_account_admin_rejects_wrong_token(): void
@@ -79,6 +80,37 @@ class AccountAdminApiTest extends TestCase
             'role' => 'admin',
             'status' => 'disabled',
         ]);
+    }
+
+    public function test_account_admin_can_remove_account_access_idempotently(): void
+    {
+        $this->enableAccountAdmin();
+        $user = User::factory()->create([
+            'pbb_user_id' => '01KW8MMWBOAPFV1XN2N7N275TS',
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+
+        $this->accountAdminRequest()
+            ->deleteJson("/api/account-admin/users/{$user->pbb_user_id}", [
+                'reason' => 'Removed from Account.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.removed', true)
+            ->assertJsonPath('data.user.pbbUserId', null)
+            ->assertJsonPath('data.user.status', 'disabled');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'pbb_user_id' => null,
+            'status' => 'disabled',
+        ]);
+
+        $this->accountAdminRequest()
+            ->deleteJson('/api/account-admin/users/01KW8MMWBOAPFV1XN2N7N275TS')
+            ->assertOk()
+            ->assertJsonPath('data.removed', true)
+            ->assertJsonPath('data.user', null);
     }
 
     public function test_account_admin_rejects_invalid_role(): void

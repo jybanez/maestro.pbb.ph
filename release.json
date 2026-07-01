@@ -129,6 +129,13 @@
         "token": "PBB_MAESTRO_ACCOUNT_ADMIN_API_TOKEN"
       },
       "meta_endpoint": "/api/account-admin/meta",
+      "capabilities": {
+        "provisionUser": true,
+        "updateRole": true,
+        "blockLogin": true,
+        "suspendLogin": false,
+        "removeUser": true
+      },
       "roles": ["admin", "user"],
       "statuses": ["active", "disabled"],
       "requires_database_migration": true

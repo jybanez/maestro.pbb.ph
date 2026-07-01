@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +36,7 @@ class AccountAdminController extends Controller
                 'updateRole' => true,
                 'blockLogin' => true,
                 'suspendLogin' => false,
+                'removeUser' => true,
             ],
         ]);
     }
@@ -155,6 +157,47 @@ class AccountAdminController extends Controller
         $user->forceFill($fill)->save();
 
         return $this->ok([
+            'user' => $this->userPayload($user),
+        ]);
+    }
+
+    public function removeAccess(Request $request, string $pbbUserId): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $user = $this->findLinkedUser($pbbUserId);
+        if (! $user) {
+            Log::info('Maestro account-admin remove access ignored for missing linked user', [
+                'pbb_user_id' => $pbbUserId,
+                'reason' => $data['reason'] ?? null,
+            ]);
+
+            return $this->ok([
+                'removed' => true,
+                'user' => null,
+            ]);
+        }
+
+        $localUserId = (string) $user->id;
+        $email = $user->email;
+
+        $user->forceFill([
+            'pbb_user_id' => null,
+            'status' => 'disabled',
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        Log::info('Maestro account-admin removed Account access', [
+            'pbb_user_id' => $pbbUserId,
+            'local_user_id' => $localUserId,
+            'email' => $email,
+            'reason' => $data['reason'] ?? null,
+        ]);
+
+        return $this->ok([
+            'removed' => true,
             'user' => $this->userPayload($user),
         ]);
     }
