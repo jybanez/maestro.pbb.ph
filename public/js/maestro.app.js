@@ -284,11 +284,14 @@ function renderTopbar() {
         })),
         actions: state.authenticated && state.account
             ? [
+                ...(state.account?.role === "admin" ? [{
+                    id: "settings",
+                    label: "Settings",
+                }] : []),
                 {
                     id: "user-menu",
                     label: getUserMenuLabel(),
                     menuItems: [
-                        ...(state.account?.role === "admin" ? [{ id: "settings", label: "Settings" }] : []),
                         { id: "account", label: "Account" },
                         { id: "logout", label: "Logout", danger: true },
                     ],
@@ -304,14 +307,14 @@ function renderTopbar() {
         onAction(action) {
             if (action?.id === "login") {
                 void startLoginFlow();
+                return;
+            }
+            if (action?.id === "settings") {
+                void openAccountIntegrationSettingsModal();
             }
         },
         onActionMenuSelect(action, menuItem) {
             if (action?.id !== "user-menu") return;
-            if (menuItem?.id === "settings") {
-                void openAccountIntegrationSettingsModal();
-                return;
-            }
             if (menuItem?.id === "account") {
                 void openAccountModal();
                 return;
