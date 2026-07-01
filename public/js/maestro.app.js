@@ -148,6 +148,11 @@ async function bootstrapApp() {
     renderAppShell();
     render();
 
+    if (!state.authenticated && accountSsoReadyForLogin()) {
+        startLoginFlow();
+        return;
+    }
+
     if (state.authenticated) {
         touchServerSession();
         await refreshCurrentUser();
